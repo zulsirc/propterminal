@@ -1,0 +1,3333 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PROP TERMINAL v7 // NBA · Guided Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d10; --bg-2: #0f1318; --bg-3: #161b22;
+    --line: #1f2630; --line-2: #2a3340;
+    --ink: #d8e0e8; --ink-dim: #8a96a3; --ink-faint: #4d5763;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    --blue: #60a5fa; --accent: #ffae00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.45;
+    min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background: radial-gradient(ellipse at top, rgba(255,174,0,0.04), transparent 50%),
+      repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 3px);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1500px; margin: 0 auto; padding: 18px; }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px; margin-bottom: 18px;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand h1 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 800; font-size: 18px; letter-spacing: -0.02em;
+  }
+  .brand h1 .accent { color: var(--accent); }
+  .brand .tag {
+    font-size: 10px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: 0.18em; border: 1px solid var(--line-2); padding: 3px 7px;
+  }
+  .clock { font-size: 11px; color: var(--ink-dim); }
+  .clock .dot {
+    display:inline-block; width:7px; height:7px; border-radius:50%;
+    background: var(--green); margin-right:6px; vertical-align: middle;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.35 } }
+  .tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--line);
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .tab {
+    padding: 10px 18px; font-family: inherit; font-size: 11px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    background: transparent; border: none; color: var(--ink-dim);
+    cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all .12s;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .badge {
+    display: inline-block; margin-left: 6px;
+    background: var(--bg-3); color: var(--ink-dim);
+    padding: 1px 6px; font-size: 10px; border: 1px solid var(--line-2);
+  }
+  .tab.active .badge { color: var(--accent); border-color: var(--accent); }
+  .panel { background: var(--bg-2); border: 1px solid var(--line); margin-bottom: 14px; }
+  .panel-head {
+    display:flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--bg-3);
+  }
+  .panel-head h2 {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .panel-head h2 .num { color: var(--accent); margin-right: 8px; }
+  .panel-head .meta { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.1em; }
+  .panel-body { padding: 14px; }
+  label {
+    display: block; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px;
+  }
+  input, select, button, textarea {
+    font-family: inherit; font-size: 13px; background: var(--bg);
+    border: 1px solid var(--line-2); color: var(--ink);
+    padding: 8px 10px; width: 100%; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  input::placeholder { color: var(--ink-faint); }
+  button {
+    cursor: pointer; text-transform: uppercase;
+    letter-spacing: 0.1em; font-weight: 700; transition: all .12s;
+  }
+  button.primary { background: var(--accent); color: #0a0d10; border-color: var(--accent); }
+  button.primary:hover { background: #ffc233; }
+  button.ghost { background: transparent; border-color: var(--line-2); color: var(--ink-dim); }
+  button.ghost:hover { color: var(--ink); border-color: var(--ink-dim); }
+  button.danger { background: transparent; border-color: rgba(248,113,113,0.4); color: var(--red); }
+  button.danger:hover { background: rgba(248,113,113,0.1); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .api-row { display: grid; gap: 10px; grid-template-columns: 1fr auto; align-items: end; }
+  .help { font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+  .help a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+  .search-results {
+    margin-top: 8px; border: 1px solid var(--line);
+    max-height: 220px; overflow-y: auto; background: var(--bg);
+  }
+  .search-results .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 10px; border-bottom: 1px solid var(--line);
+    cursor: pointer; font-size: 12px;
+  }
+  .search-results .row:last-child { border-bottom: none; }
+  .search-results .row:hover { background: var(--bg-3); }
+  .search-results .row .nm { color: var(--ink); font-weight: 500; }
+  .search-results .row .tm { color: var(--ink-faint); font-size: 11px; }
+  .prop-config {
+    display: grid; gap: 10px;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    align-items: end;
+  }
+  @media(max-width: 720px) { .prop-config { grid-template-columns: 1fr 1fr; } }
+  .selected-player {
+    background: var(--bg-3); border: 1px solid var(--line-2);
+    padding: 8px 12px;
+    display:flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 12px;
+    flex-wrap: wrap; gap: 8px;
+  }
+  .selected-player .name { color: var(--accent); font-weight: 700; }
+  .selected-player .clear { font-size: 10px; color: var(--ink-dim); cursor: pointer; }
+  .filters-row {
+    display: grid; gap: 10px;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: end; padding: 12px;
+    background: var(--bg); border: 1px solid var(--line-2);
+    margin-top: 10px;
+  }
+  @media(max-width: 720px) { .filters-row { grid-template-columns: 1fr; } }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .seasons-checks { display: flex; gap: 12px; flex-wrap: wrap; }
+  .seasons-checks label {
+    display: flex; align-items: center; gap: 6px;
+    margin: 0; cursor: pointer;
+    color: var(--ink); text-transform: none; letter-spacing: 0;
+    font-size: 12px;
+  }
+  .seasons-checks input[type=checkbox] { width: auto; margin: 0; }
+  .verdict {
+    padding: 18px; border: 1px solid var(--line-2);
+    background: var(--bg-3); margin-bottom: 14px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;
+  }
+  @media(max-width: 720px) { .verdict { grid-template-columns: 1fr; } }
+  .verdict-cell .lbl {
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 6px;
+  }
+  .verdict-cell .val { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .verdict-cell .sub { font-size: 11px; color: var(--ink-faint); margin-top: 3px; }
+  .v-good { color: var(--green); }
+  .v-bad { color: var(--red); }
+  .v-neutral { color: var(--yellow); }
+  .recommendation {
+    padding: 16px; margin-bottom: 14px;
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, rgba(255,174,0,0.08), transparent);
+  }
+  .recommendation .head {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .recommendation .body { font-size: 14px; line-height: 1.5; }
+  .recommendation.bet-over { border-color: var(--green); background: linear-gradient(90deg, rgba(74,222,128,0.08), transparent); }
+  .recommendation.bet-over .head { color: var(--green); }
+  .recommendation.bet-under { border-color: var(--red); background: linear-gradient(90deg, rgba(248,113,113,0.08), transparent); }
+  .recommendation.bet-under .head { color: var(--red); }
+  .recommendation.bet-pass { border-color: var(--ink-dim); background: linear-gradient(90deg, rgba(138,150,163,0.05), transparent); }
+  .recommendation.bet-pass .head { color: var(--ink-dim); }
+  .recommendation .actions {
+    margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .recommendation .actions button { width: auto; padding: 6px 14px; font-size: 11px; }
+  .kelly-box {
+    background: var(--bg); border: 1px solid var(--line-2);
+    padding: 12px; margin-top: 10px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+  }
+  .kelly-box .k-cell { text-align: center; }
+  .kelly-box .k-cell .lbl {
+    font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px;
+  }
+  .kelly-box .k-cell .v { font-size: 17px; font-weight: 700; color: var(--accent); }
+  .models-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  @media(max-width: 720px) { .models-grid { grid-template-columns: 1fr; } }
+  .model-cell { padding: 12px; background: var(--bg-2); }
+  .model-cell .lbl {
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 4px;
+  }
+  .model-cell .v { font-size: 18px; font-weight: 700; }
+  .model-cell .sub { font-size: 10px; color: var(--ink-dim); margin-top: 2px; }
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+  }
+  @media(max-width: 720px) { .metrics-grid { grid-template-columns: 1fr 1fr; } }
+  .metric { padding: 12px; background: var(--bg-2); }
+  .metric .lbl {
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 4px;
+  }
+  .metric .val { font-size: 18px; font-weight: 700; }
+  .metric .delta { font-size: 11px; margin-top: 2px; }
+  .metric .delta.up { color: var(--green); }
+  .metric .delta.down { color: var(--red); }
+  .splits-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    margin-top: 14px;
+  }
+  .split-cell { padding: 12px; background: var(--bg-2); }
+  .split-cell .lbl {
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .split-cell .stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .split-cell .stat-item .v { font-size: 16px; font-weight: 700; }
+  .split-cell .stat-item .k { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+  th {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-dim); font-weight: 600; background: var(--bg-3);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  th:nth-child(2), td:nth-child(2) { text-align: left; }
+  tr.hit td.target { color: var(--green); font-weight: 700; background: rgba(74,222,128,0.06); }
+  tr.miss td.target { color: var(--red); background: rgba(248,113,113,0.06); }
+  tr:hover td { background: var(--bg-3); }
+  td.b2b { color: var(--yellow); }
+  .spark-row {
+    display: flex; align-items: end; gap: 3px;
+    height: 50px; margin: 12px 0 6px;
+    padding: 8px; background: var(--bg);
+    border: 1px solid var(--line);
+  }
+  .spark-bar { flex: 1; min-height: 2px; position: relative; transition: background .15s; }
+  .spark-bar.hit { background: var(--green); }
+  .spark-bar.miss { background: var(--red); }
+  .spark-bar:hover::after {
+    content: attr(data-tip); position: absolute;
+    bottom: 105%; left: 50%; transform: translateX(-50%);
+    background: var(--bg-3); color: var(--ink);
+    border: 1px solid var(--line-2);
+    padding: 4px 8px; font-size: 11px;
+    white-space: nowrap; z-index: 10;
+  }
+  .signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .signal {
+    font-size: 10px; padding: 4px 8px;
+    border: 1px solid var(--line-2);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--bg);
+  }
+  .signal.warn { border-color: var(--yellow); color: var(--yellow); }
+  .signal.bad { border-color: var(--red); color: var(--red); }
+  .signal.good { border-color: var(--green); color: var(--green); }
+  .signal.info { border-color: var(--blue); color: var(--blue); }
+  .hidden { display: none !important; }
+  .loader {
+    display: inline-block; width: 10px; height: 10px;
+    border: 2px solid var(--ink-faint); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .progress-bar { height: 4px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width .3s; }
+  .injury-list {
+    background: var(--bg); border: 1px solid var(--line-2);
+    padding: 10px; margin-top: 10px;
+    max-height: 460px; overflow-y: auto;
+  }
+  .injury-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid var(--line);
+    font-size: 12px; gap: 10px;
+  }
+  .injury-row:last-child { border-bottom: none; }
+  .injury-name { color: var(--ink); }
+  .injury-team { color: var(--ink-dim); font-size: 10px; }
+  .injury-status {
+    font-size: 10px; padding: 2px 6px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .injury-status.out { color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .injury-status.questionable { color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+  .injury-status.day-to-day { color: var(--blue); border: 1px solid rgba(96,165,250,0.3); }
+  .injury-status.probable { color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+  .injury-status.doubtful { color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .tracker-summary {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  @media(max-width: 720px) { .tracker-summary { grid-template-columns: 1fr 1fr; } }
+  .tracker-cell { padding: 14px; background: var(--bg-2); }
+  .tracker-cell .lbl {
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 6px;
+  }
+  .tracker-cell .val { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .tracker-cell .sub { font-size: 11px; color: var(--ink-faint); margin-top: 3px; }
+  .bet-row { font-size: 11px; }
+  .bet-row .pending { color: var(--yellow); }
+  .bet-row .win { color: var(--green); }
+  .bet-row .loss { color: var(--red); }
+  .bet-row .void { color: var(--ink-dim); }
+  .empty-state {
+    padding: 30px; text-align: center; color: var(--ink-dim);
+    border: 1px dashed var(--line-2);
+  }
+  footer {
+    margin-top: 24px; padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 10px; color: var(--ink-faint);
+    letter-spacing: 0.08em;
+  }
+  footer .disclaimer { margin-top: 8px; }
+  .ascii-bar {
+    color: var(--ink-faint); font-size: 10px;
+    letter-spacing: 0.05em; margin: 2px 0;
+    overflow: hidden; white-space: nowrap;
+  }
+  details summary {
+    cursor: pointer; padding: 6px 10px;
+    background: var(--bg-3); border: 1px solid var(--line-2);
+    font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-dim);
+  }
+  details[open] summary { color: var(--accent); border-color: var(--accent); }
+  details .details-body {
+    padding: 12px; border: 1px solid var(--line);
+    border-top: none; background: var(--bg);
+  }
+
+  /* === TOOLTIPS === */
+  .tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px; height: 14px;
+    margin-left: 4px;
+    border: 1px solid var(--line-2);
+    border-radius: 50%;
+    color: var(--ink-faint);
+    font-size: 9px; font-weight: 700;
+    cursor: help;
+    position: relative;
+    background: var(--bg);
+    vertical-align: middle;
+    transition: all .15s;
+  }
+  .tip:hover { color: var(--accent); border-color: var(--accent); }
+  .tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 130%; left: 50%; transform: translateX(-50%);
+    background: #0a0d10;
+    border: 1px solid var(--accent);
+    color: var(--ink);
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.5;
+    width: 320px;
+    max-width: 85vw;
+    text-align: left;
+    z-index: 1000;
+    opacity: 0; pointer-events: none;
+    transition: opacity .15s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    white-space: normal;
+  }
+  .tip:hover::after { opacity: 1; }
+  /* When tip is near right edge, anchor right */
+  .tip.tip-right::after { left: auto; right: 0; transform: none; }
+  .tip.tip-left::after { left: 0; right: auto; transform: none; }
+  /* Mobile: show below instead of above */
+  @media(max-width: 720px) {
+    .tip::after { bottom: auto; top: 130%; }
+  }
+
+  /* === REASONING BOX === */
+  .reasoning-box {
+    background: linear-gradient(135deg, rgba(96,165,250,0.04), rgba(192,132,252,0.04));
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--blue);
+    padding: 16px;
+    margin: 14px 0;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .reasoning-box .head {
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .reasoning-box p {
+    margin-bottom: 10px;
+    color: var(--ink);
+  }
+  .reasoning-box p:last-child { margin-bottom: 0; }
+  .reasoning-box strong { color: var(--accent); }
+  .reasoning-box .neg { color: var(--red); }
+  .reasoning-box .pos { color: var(--green); }
+  .reasoning-box ul {
+    margin: 8px 0 8px 20px;
+    color: var(--ink);
+  }
+  .reasoning-box li { margin-bottom: 4px; }
+
+  /* === ONBOARDING === */
+  .onboarding-step {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .onboarding-step .step-num {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 26px; height: 26px;
+    background: var(--accent); color: #0a0d10;
+    font-weight: 700; font-size: 12px;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+  .onboarding-step h3 {
+    display: inline-block;
+    font-size: 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .onboarding-step .body {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-dim);
+  }
+  .onboarding-step .body strong { color: var(--ink); }
+  .onboarding-step .body code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-size: 12px;
+  }
+  .onboarding-step .body a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent);
+  }
+
+  .concept-card {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .concept-card h4 {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .concept-card p {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+  .concept-card p:last-child { margin-bottom: 0; }
+  .concept-card strong { color: var(--ink); }
+  .concept-card em { color: var(--yellow); font-style: normal; }
+
+  /* === WELCOME SCREEN === */
+  .welcome-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 13, 16, 0.97);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .welcome-card {
+    max-width: 560px;
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--accent);
+    padding: 28px;
+    box-shadow: 0 8px 32px rgba(255, 174, 0, 0.15);
+  }
+  .welcome-card h1 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 24px; font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .welcome-card h1 .accent { color: var(--accent); }
+  .welcome-card .subtitle {
+    font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint);
+    margin-bottom: 18px;
+  }
+  .welcome-card .desc {
+    font-size: 13px; line-height: 1.6;
+    color: var(--ink-dim);
+    margin-bottom: 22px;
+  }
+  .welcome-card .desc strong { color: var(--ink); }
+  .welcome-options {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .welcome-opt {
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    padding: 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: all .15s;
+    width: 100%;
+    color: var(--ink);
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: normal;
+  }
+  .welcome-opt:hover {
+    border-color: var(--accent);
+    background: var(--bg-3);
+  }
+  .welcome-opt .opt-title {
+    display: block;
+    font-size: 14px; font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .welcome-opt .opt-desc {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+  .welcome-foot {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 10px;
+    color: var(--ink-faint);
+    line-height: 1.6;
+    letter-spacing: 0.05em;
+  }
+
+  /* === TUTORIAL MODAL === */
+  .tutorial-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 13, 16, 0.97);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .tutorial-card {
+    max-width: 680px;
+    width: 100%;
+    max-height: 90vh;
+    background: var(--bg-2);
+    border: 1px solid var(--accent);
+    box-shadow: 0 8px 32px rgba(255, 174, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+  }
+  .tutorial-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tutorial-head h2 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 17px; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .tutorial-head h2 .accent { color: var(--accent); }
+  .tutorial-progress {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .tutorial-progress .current {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .tutorial-body {
+    padding: 24px 22px;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .tutorial-body h3 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 18px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .tutorial-body h4 {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin: 16px 0 8px;
+  }
+  .tutorial-body p { margin-bottom: 12px; color: var(--ink-dim); }
+  .tutorial-body p:last-child { margin-bottom: 0; }
+  .tutorial-body strong { color: var(--ink); }
+  .tutorial-body code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-size: 12px;
+  }
+  .tutorial-body a {
+    color: var(--accent);
+    border-bottom: 1px dotted var(--accent);
+    text-decoration: none;
+  }
+  .tutorial-body ul {
+    margin: 0 0 12px 20px;
+    color: var(--ink-dim);
+  }
+  .tutorial-body li { margin-bottom: 6px; }
+  .tutorial-body .highlight {
+    background: rgba(255, 174, 0, 0.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 12px 0;
+    color: var(--ink);
+  }
+  .tutorial-body .warn {
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid var(--yellow);
+    padding: 10px 14px;
+    margin: 12px 0;
+    color: var(--ink);
+  }
+  .tutorial-foot {
+    padding: 14px 22px;
+    border-top: 1px solid var(--line);
+    background: var(--bg-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tutorial-foot button {
+    width: auto;
+    padding: 8px 18px;
+    font-size: 11px;
+  }
+  .tutorial-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .tutorial-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line-2);
+    transition: background .2s;
+    cursor: pointer;
+  }
+  .tutorial-dot.active { background: var(--accent); }
+  .tutorial-dot.done { background: var(--green); }
+</style>
+</head>
+<body>
+
+<div id="welcome-overlay" class="welcome-overlay hidden">
+  <div class="welcome-card">
+    <h1>PROP <span class="accent">TERMINAL</span></h1>
+    <div class="subtitle">v7 · NBA Player Props EV Engine</div>
+    <div class="desc">
+      Bem-vindo. Esse é um <strong>analisador de player props da NBA</strong> que usa 3 modelos estatísticos pra detectar valor em apostas. <strong>Tudo roda no teu navegador</strong> — nada vai pra servidor algum, nenhum dado teu sai do teu dispositivo.
+      <br><br>
+      <strong>Como funciona o perfil:</strong> teu histórico de apostas, configurações e API key ficam num <strong>arquivo de perfil (.json)</strong> que tu controla. Carrega ele aqui pra continuar de onde parou. Quando terminar, baixa atualizado.
+    </div>
+    <div class="welcome-options">
+      <button class="welcome-opt" id="welcome-tutorial">
+        <span class="opt-title">📘 Ver Tutorial Completo</span>
+        <span class="opt-desc">Primeira vez aqui? Recomendado. Tutorial guiado de 7 passos cobrindo tudo: setup, perfil portátil, como interpretar análises, e o workflow recomendado. ~3 minutos de leitura.</span>
+      </button>
+      <button class="welcome-opt" id="welcome-load">
+        <span class="opt-title">📂 Carregar Perfil Existente</span>
+        <span class="opt-desc">Já tem um arquivo .json de perfil salvo? Carregue ele aqui pra continuar com tuas bets, settings e histórico.</span>
+      </button>
+      <button class="welcome-opt" id="welcome-new">
+        <span class="opt-title">✨ Pular e Começar do Zero</span>
+        <span class="opt-desc">Já sabes usar ou prefere descobrir explorando. Cria um perfil em branco. Tutorial fica disponível depois na aba <strong>Learn</strong>.</span>
+      </button>
+      <button class="welcome-opt" id="welcome-continue">
+        <span class="opt-title">▸ Continuar Sessão Local</span>
+        <span class="opt-desc">Detectei dados salvos neste navegador (de uma sessão anterior). Continuar com eles? <em style="color: var(--yellow);">Atenção: se este navegador é compartilhado, pode haver dados de outra pessoa.</em></span>
+      </button>
+    </div>
+    <div class="welcome-foot">
+      OPEN-SOURCE · CLIENT-SIDE · SEM SERVIDOR · SEM RASTREAMENTO<br>
+      Após começar, vai na aba <strong>LEARN</strong> pra ver detalhes técnicos.
+    </div>
+  </div>
+</div>
+
+<div id="tutorial-overlay" class="tutorial-overlay hidden">
+  <div class="tutorial-card">
+    <div class="tutorial-head">
+      <h2>📘 Tutorial · <span class="accent">PROP TERMINAL</span></h2>
+      <div class="tutorial-progress">passo <span class="current" id="tut-current">1</span> / <span id="tut-total">7</span></div>
+    </div>
+    <div class="tutorial-body" id="tutorial-body"></div>
+    <div class="tutorial-foot">
+      <button class="ghost" id="tut-skip">Pular tutorial</button>
+      <div class="tutorial-dots" id="tutorial-dots"></div>
+      <div style="display: flex; gap: 8px;">
+        <button class="ghost" id="tut-prev">← Voltar</button>
+        <button class="primary" id="tut-next">Próximo →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>PROP <span class="accent">TERMINAL</span></h1>
+      <span class="tag">v7 · Hosted · Tutorial · Profile File-Based</span>
+    </div>
+    <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
+  </header>
+
+  <div id="snapshot-bar" style="
+    background: var(--bg-2); border: 1px solid var(--line);
+    padding: 8px 12px; margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 10px; font-size: 11px;
+  ">
+    <div style="color: var(--ink-dim);">
+      <span id="profile-id" style="color: var(--accent); font-weight: 700;">PROFILE</span>
+      · session <span id="iter-count" style="color: var(--ink);">0</span>
+      · <span id="last-device" style="color: var(--ink);">–</span>
+      · <span id="snapshot-status" style="color: var(--green);">in sync</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="primary" id="snapshot-btn" style="width: auto; padding: 4px 12px; font-size: 10px;">💾 Save Profile</button>
+      <button class="ghost" id="import-btn" style="width: auto; padding: 4px 12px; font-size: 10px;">📂 Load Profile</button>
+    </div>
+  </div>
+
+  <div class="ascii-bar">───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="analyze">Analyze</button>
+    <button class="tab" data-tab="injuries">Injuries</button>
+    <button class="tab" data-tab="tracker">Tracker <span class="badge" id="tracker-badge">0</span></button>
+    <button class="tab" data-tab="learn">Learn</button>
+    <button class="tab" data-tab="profile">Profile</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </div>
+
+  <div id="tab-analyze">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[01]</span> Player Lookup</h2>
+        <span class="meta" id="search-meta">idle</span>
+      </div>
+      <div class="panel-body">
+        <div id="selected-player-box" class="hidden"></div>
+        <label>Search Player</label>
+        <input type="text" id="player-search" placeholder="ex: harden, doncic, lebron" autocomplete="off" />
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[02]</span> Prop & Filters</h2>
+        <span class="meta">configure → analyze</span>
+      </div>
+      <div class="panel-body">
+        <div class="prop-config">
+          <div>
+            <label>Stat</label>
+            <select id="stat-select">
+              <option value="pts">Points</option>
+              <option value="reb">Rebounds</option>
+              <option value="ast">Assists</option>
+              <option value="fg3m">3PM</option>
+              <option value="stl">Steals</option>
+              <option value="blk">Blocks</option>
+              <option value="pra">PRA (P+R+A)</option>
+              <option value="pr">P+R</option>
+              <option value="pa">P+A</option>
+              <option value="ra">R+A</option>
+              <option value="stl_blk">Stl+Blk</option>
+              <option value="turnover">Turnovers</option>
+              <option value="min">Minutes</option>
+            </select>
+          </div>
+          <div>
+            <label>Side</label>
+            <select id="side-select">
+              <option value="over">Over</option>
+              <option value="under">Under</option>
+            </select>
+          </div>
+          <div>
+            <label>Line</label>
+            <input type="number" id="line-input" step="0.5" placeholder="15.5" />
+          </div>
+          <div>
+            <label>Odd (decimal)</label>
+            <input type="number" id="odd-input" step="0.01" placeholder="1.83" />
+          </div>
+        </div>
+
+        <div class="filters-row">
+          <div class="filter-group">
+            <label>Seasons</label>
+            <div class="seasons-checks" id="seasons-checks"></div>
+          </div>
+          <div class="filter-group">
+            <label>Opponent (matchup + pace)</label>
+            <select id="opponent-select"><option value="">— None —</option></select>
+          </div>
+          <div class="filter-group">
+            <label>Venue Filter</label>
+            <select id="venue-select">
+              <option value="all">All games</option>
+              <option value="home">Home only</option>
+              <option value="away">Away only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filters-row" style="margin-top:8px;">
+          <div class="filter-group">
+            <label>Rest Days Filter</label>
+            <select id="rest-select">
+              <option value="all">All games</option>
+              <option value="b2b">Back-to-back (0d)</option>
+              <option value="rested">Rested (2+d)</option>
+              <option value="normal">Normal (1d)</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Teammate ID (optional)</label>
+            <input type="text" id="teammate-input" placeholder="ex: 237" />
+          </div>
+          <div class="filter-group">
+            <label>Teammate State</label>
+            <select id="teammate-state">
+              <option value="any">Any</option>
+              <option value="with">WITH teammate</option>
+              <option value="without">WITHOUT teammate</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filters-row" style="margin-top:8px;">
+          <div class="filter-group" style="grid-column: 1/4;">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="adv-usage" style="width:auto;"> Compute REAL usage rate (slow: +30s per season)
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="primary" id="analyze-btn" disabled>Run Analysis</button>
+          <button class="ghost" id="clear-btn">Clear</button>
+          <button class="ghost" id="find-teammate-btn">Find Teammate ID</button>
+        </div>
+        <div class="progress-bar hidden" id="progress-bar"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="results-panel">
+      <div class="panel-head">
+        <h2><span class="num">[03]</span> Verdict</h2>
+        <span class="meta" id="result-meta"></span>
+      </div>
+      <div class="panel-body" id="results-body"></div>
+    </section>
+  </div>
+
+  <div id="tab-injuries" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[I1]</span> League-Wide Injury Report</h2>
+        <span class="meta" id="injuries-meta">click refresh</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px;">
+            <label>Filter by Team</label>
+            <select id="injury-team-filter"><option value="">All teams</option></select>
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <label>Filter by Status</label>
+            <select id="injury-status-filter">
+              <option value="">All statuses</option>
+              <option value="Out">Out</option>
+              <option value="Doubtful">Doubtful</option>
+              <option value="Questionable">Questionable</option>
+              <option value="Day-To-Day">Day-To-Day</option>
+              <option value="Probable">Probable</option>
+            </select>
+          </div>
+          <button class="primary" id="refresh-injuries" style="width:auto; padding:8px 18px;">Refresh</button>
+        </div>
+        <div id="injuries-list" class="injury-list">
+          <div class="empty-state">Click Refresh to load current injury report</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-tracker" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[T1]</span> Bet Tracker · ROI Performance</h2>
+        <span class="meta">stored locally</span>
+      </div>
+      <div class="panel-body">
+        <div class="tracker-summary" id="tracker-summary"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim);">All Bets</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="export-bets" style="width:auto; padding:5px 12px; font-size:10px;">Export JSON</button>
+            <button class="danger" id="clear-bets" style="width:auto; padding:5px 12px; font-size:10px;">Clear All</button>
+          </div>
+        </div>
+        <div id="bets-table-wrap"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-learn" class="hidden">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[L1]</span> Como Começar · Setup em 5 minutos</h2>
+        <span class="meta">primeira vez aqui</span>
+      </div>
+      <div class="panel-body">
+        <div style="background: rgba(255,174,0,0.06); border: 1px solid var(--accent); padding: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="font-size: 12px; line-height: 1.5;">
+            <strong style="color: var(--accent);">📘 Quer ver o tutorial guiado completo?</strong><br>
+            <span style="color: var(--ink-dim);">7 passos cobrindo tudo: setup, perfil, análise, workflow.</span>
+          </div>
+          <button class="primary" id="open-tutorial-btn" style="width: auto; padding: 8px 18px;">Abrir Tutorial</button>
+        </div>
+
+        <div style="font-size: 12px; color: var(--ink-dim); margin-bottom: 16px; line-height: 1.6;">
+          Esse terminal precisa de uma chave de API gratuita pra puxar dados dos jogos da NBA. Sem ela nada funciona. O passo a passo abaixo leva 5 minutos no total.
+        </div>
+
+        <div class="onboarding-step">
+          <div><span class="step-num">1</span><h3>Criar conta no BalldontLie</h3></div>
+          <div class="body">
+            Vai em <a href="https://app.balldontlie.io/signup" target="_blank" rel="noopener">app.balldontlie.io/signup</a> e cria uma conta. <strong>É grátis pra sempre</strong> no plano Free. Pode usar email ou Google. Não precisa cartão.
+          </div>
+        </div>
+
+        <div class="onboarding-step">
+          <div><span class="step-num">2</span><h3>Pegar tua API Key</h3></div>
+          <div class="body">
+            Depois de logado, vai pra <a href="https://app.balldontlie.io" target="_blank" rel="noopener">app.balldontlie.io</a> (dashboard). No painel principal vai ter uma seção <strong>"API Key"</strong> com uma chave longa tipo <code>abc123-def456-ghi789-xyz000</code>. Copia ela inteira.
+          </div>
+        </div>
+
+        <div class="onboarding-step">
+          <div><span class="step-num">3</span><h3>Colar a chave no terminal</h3></div>
+          <div class="body">
+            Abre a aba <strong>Settings</strong> aqui no app. No campo <strong>"BALLDONTLIE API KEY"</strong>, cola a chave que tu copiou. Clica <strong>Save Key</strong>. Pronto, tu tá conectado. A chave fica salva no teu navegador, não vai pra nenhum servidor.
+          </div>
+        </div>
+
+        <div class="onboarding-step">
+          <div><span class="step-num">4</span><h3>Configurar tua banca</h3></div>
+          <div class="body">
+            Ainda em Settings, vai em <strong>"Bankroll (units)"</strong>. Coloca quantas unidades tu tem na banca (pode ser quantos R$ tu tem disponível pra apostas, dividido em uma unidade qualquer — ex: se tens R$1000 e cada unidade é R$10, tua banca é 100 unidades). Isso é só pra calcular tamanho ótimo de stake. <strong>NÃO compartilha info financeira com nenhum servidor.</strong>
+          </div>
+        </div>
+
+        <div class="onboarding-step">
+          <div><span class="step-num">5</span><h3>Primeira análise</h3></div>
+          <div class="body">
+            Vai pra aba <strong>Analyze</strong>, busca um jogador (ex: "harden"), seleciona ele. Escolhe o stat (Points), side (Over), bota uma linha (ex: 15.5) e a odd da casa (ex: 1.83). Clica <strong>Run Analysis</strong>. O modelo vai puxar 30+ jogos do cara e te dar um veredito completo com explicação de por que vale ou não vale apostar.
+          </div>
+        </div>
+
+        <div style="background: rgba(74,222,128,0.05); border: 1px solid rgba(74,222,128,0.3); padding: 14px; margin-top: 16px; font-size: 12px; line-height: 1.6;">
+          <strong style="color: var(--green);">PRONTO.</strong> Esses 5 passos te dão tudo. Os tier pago de $9.99 do BalldontLie só aumenta o rate limit de 5 pra 60 requests/min — útil se tu for analisar muitos jogos por noite, mas não muda o resultado. Free tier é mais que suficiente pra começar.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[L2]</span> Filosofia · Por que apostas com edge faz dinheiro?</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="concept-card">
+          <h4>O que é Edge?</h4>
+          <p>
+            <strong>Edge</strong> é a diferença entre a probabilidade real de algo acontecer e a probabilidade que a casa de apostas tá te oferecendo. Se a casa paga odd 2.00 (50% implícito) e a probabilidade real é 55%, tu tem +5% de edge.
+          </p>
+          <p>
+            <em>Por que isso faz dinheiro a longo prazo?</em> Por causa da <strong>Lei dos Grandes Números</strong>. No curto prazo (1 aposta, 10 apostas), variância manda — tu pode perder 7 seguidas mesmo com edge positivo. Mas em 500-1000 apostas, a média converge pro valor esperado real. Se tu tem 5% de edge consistente em todas, tua banca vai crescer ~5% por unidade apostada na média.
+          </p>
+          <p>
+            Apostas SEM edge são <strong>matematicamente perdedoras</strong>. A casa cobra margem (geralmente 5-8% em props da NBA), então jogar "no chute" significa perder 5-8% por aposta, em média. Edge precisa superar essa margem.
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>De onde vem edge real?</h4>
+          <p>
+            <strong>1. Mercados ineficientes:</strong> player props são muito menos eficientes que spreads/totals. A casa modela bem Lakers vs Suns, mas pra "Reaves over 13.5 pts" ela usa modelos mais simples e tem menos volume de sharps corrigindo. Esse é o teu maior aliado.
+          </p>
+          <p>
+            <strong>2. Vieses do público:</strong> apostadores casuais quase sempre apostam OVER em estrelas (mais divertido), favoritos populares (Lakers, Warriors), e times em alta. Apostar contra esses vieses tem edge pequeno mas consistente.
+          </p>
+          <p>
+            <strong>3. Informação que ainda não foi precificada:</strong> quando sai notícia de lesão de titular 30-90 minutos antes do jogo, as linhas dos jogadores secundários demoram pra ajustar. Quem agir nessa janela ganha.
+          </p>
+          <p>
+            <strong>4. Análise estatística melhor que a casa:</strong> tu, com esse terminal, pode rodar 3 modelos diferentes ajustados por pace, matchup, descanso, lineup. A casa pode estar usando médias simples. Se o teu modelo for mais preciso em casos específicos, edge.
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Por que CLV (Closing Line Value) é o santo graal?</h4>
+          <p>
+            <strong>Win rate</strong> de curto prazo é cheio de variância. Tu pode ganhar 60% das apostas em 50 jogos por sorte e perder 60% em 50 jogos por azar — não significa nada sobre teu skill real.
+          </p>
+          <p>
+            <strong>CLV</strong> resolve isso. Se tu apostou Harden over 15.5 a odd 1.90, e na hora do jogo a linha fechou em 1.75, isso significa que tu pegou uma odd MELHOR que o mercado estabilizou. <em>Quem bate consistentemente a closing line tem edge real, mesmo se ainda não tá ganhando dinheiro por causa de variância.</em>
+          </p>
+          <p>
+            CLV positivo + sample grande = tu vai ficar rico. CLV negativo + tu ganhando = tu tá com sorte e vai zerar. Por isso o tracker pede a closing odd quando tu loga uma bet.
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Por que Kelly Criterion é importante?</h4>
+          <p>
+            Imagina que tu tem 5% de edge em uma aposta. Quanto tu deve apostar? Se apostar pouco, deixa dinheiro na mesa. Se apostar muito e perder, quebra a banca. Kelly resolve esse trade-off matematicamente.
+          </p>
+          <p>
+            Fórmula: <code>f = (odd × prob - 1) / (odd - 1)</code>. Se a fração der 8%, tu deveria apostar 8% da banca pra maximizar crescimento da banca a longo prazo.
+          </p>
+          <p>
+            <strong>MAS:</strong> Kelly puro é agressivo demais na prática porque assumimos que sabemos a probabilidade real com precisão (e não sabemos). Por isso o app sugere <strong>Quarter Kelly (25%)</strong> por padrão — apostar 25% do que Kelly puro recomenda. Mais conservador, drawdowns muito menores.
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Por que 3 modelos blendados em vez de 1?</h4>
+          <p>
+            <strong>Modelo 1 (Empirical):</strong> "% das vezes que o cara bateu a linha nos últimos jogos". Simples, direto, mas vulnerável a streaks ruins/boas distorcerem.
+          </p>
+          <p>
+            <strong>Modelo 2 (Poisson/NegBinomial):</strong> assume que pontos/rebotes/etc seguem distribuições estatísticas conhecidas. Calcula P(X &gt; line) analiticamente. Lida melhor com linhas alternativas.
+          </p>
+          <p>
+            <strong>Modelo 3 (Bayesian):</strong> pega tua média recente e regrida pra média da carreira (prior). Reduz overreaction a 5 jogos quentes ou frios.
+          </p>
+          <p>
+            <em>Quando os 3 modelos concordam (spread &lt;4%), confiança alta. Quando discordam (&gt;10%), o app avisa "low confidence" — tu tá numa zona cinzenta onde é melhor não apostar.</em>
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Por que Pace e Matchup importam?</h4>
+          <p>
+            <strong>Pace</strong> = quantas possessions o time tem por 48 minutos. Time de pace 105 (rápido) vs pace 95 (lento) = ~10% mais oportunidades de pontuar. Isso é HUGE pra props de pontos.
+          </p>
+          <p>
+            O cálculo: pace efetivo do confronto = média entre pace do time do jogador e pace do adversário. Se Harden joga em time pace 100 e enfrenta time pace 110, pace esperado é 105. Esperamos 5% mais pontos do que a média dele.
+          </p>
+          <p>
+            <strong>Matchup defensivo:</strong> times defendem posições diferentemente. Se o adversário permite muitos pontos pra guards mas é elite contra centers, isso afeta o jogador. O app calcula isso a partir dos últimos 15 jogos do oponente, filtrado pela posição do jogador analisado.
+          </p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Por que filtrar por contexto (B2B, casa/fora, com/sem teammate)?</h4>
+          <p>
+            Estatísticas globais escondem padrões. Em <strong>back-to-back</strong> (jogo no dia seguinte do anterior), titulares geralmente perdem 3-6 minutos por causa de fadiga. Isso é uma queda real e mensurável.
+          </p>
+          <p>
+            <strong>Casa vs fora:</strong> alguns jogadores rendem 15-20% menos fora de casa por jet lag, multidão hostil, etc. Outros são imunes. Saber qual é qual.
+          </p>
+          <p>
+            <strong>Com/sem teammate:</strong> "Reaves SEM LeBron" vira "Reaves opção #1 com usage 28%". "Reaves COM LeBron" é "Reaves opção #4 com usage 18%". Apostar usando estatísticas globais (média dos dois cenários) é apostar em algo que NÃO existe quando o jogo acontece em um cenário específico.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[L3]</span> Glossário · Termos técnicos</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="concept-card">
+          <h4>Implied Probability (Probabilidade Implícita)</h4>
+          <p>É a probabilidade que a odd da casa "diz" que algo vai acontecer. Calculada como <code>1 / odd_decimal</code>. Odd 2.00 = 50% implícito. Odd 1.50 = 66.7% implícito. Odd 3.00 = 33.3% implícito.</p>
+          <p><strong>Importante:</strong> a soma das implícitas dos dois lados (over+under) sempre dá MAIS de 100% — esse "extra" é a margem da casa. Geralmente 4-8% em props NBA. Tu precisa de edge maior que essa margem pra ter EV positivo.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>EV (Expected Value)</h4>
+          <p>Quanto tu espera ganhar em média POR UNIDADE apostada. Calculado como <code>p × (odd - 1) - (1 - p)</code>, onde p é a probabilidade real. EV positivo = aposta lucrativa a longo prazo. EV negativo = aposta perdedora a longo prazo, mesmo que tu ganhe ela uma vez.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Variance / Coefficient of Variation (CV)</h4>
+          <p><strong>Variância</strong> mede o quanto os números variam ao redor da média. <strong>CV</strong> = desvio padrão / média (normalizado). CV alto (&gt; 0.5) significa boom/bust — o cara faz 5 pontos um jogo e 30 no outro. CV baixo (&lt; 0.2) = consistente, faz 18-22 toda noite.</p>
+          <p><strong>Por que importa:</strong> jogador consistente é mais previsível, edge maior em linhas próximas da média. Boom/bust tem mais valor em linhas LONGE da média (over alta ou under baixa) onde o resultado depende de "se vai ter o jogo bom".</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Usage Rate (USG%)</h4>
+          <p>Porcentagem das possessions do time que TERMINAM com aquele jogador (chute, falta sofrida, ou turnover). Estrelas têm USG entre 28-35%. Roleplayers entre 12-18%. <strong>Mudanças no USG são o sinal mais preditivo de mudança de produção</strong> — quando USG sobe, pontos/assistências/turnovers tendem a subir junto.</p>
+          <p>O app calcula USG real (precisa puxar logs de teammates) ou USG proxy. Watch a tendência, não o valor absoluto.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Pace</h4>
+          <p>Possessions por 48 minutos. Liga média gira em torno de 99-100. Time fast-paced tipo Memphis, Indiana &gt; 102. Slow-paced tipo Boston, Orlando &lt; 97. Em jogos onde os dois têm pace similar, é trivial. Em jogos de paces opostos, o jogo acontece em pace MÉDIO entre os dois — afeta projeções pra 5-10%.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Standard Error (SE)</h4>
+          <p>Quão precisa é tua estimativa de probabilidade. Calculado como <code>√(p(1-p)/N)</code>. Com 30 jogos e prob 0.6, SE ≈ 9%. Significa que a probabilidade REAL pode tar entre 51% e 69% (intervalo de confiança 1σ). Por isso o app exige edge ≥ 5% pra recomendar bet — abaixo disso, o erro estatístico engole o edge.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Bayesian Prior</h4>
+          <p>Estatística Bayesiana incorpora "conhecimento prévio" antes de olhar dados novos. No app, o "prior" é a média da carreira do jogador. Quanto MAIOR o peso do prior, mais o modelo regrida tua estimativa recente pra média histórica.</p>
+          <p><em>Exemplo:</em> jogador faz 18 ppg na carreira mas vem de 5 jogos com 25 ppg. Bayesiano com prior peso 30 + 5 jogos N=5 → posterior = (18×30 + 25×5) / 35 ≈ 19. Não acredita totalmente nos 25 recentes (pode ser sorte) nem ignora.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Negative Binomial vs Poisson</h4>
+          <p>Distribuições estatísticas pra contagens. <strong>Poisson</strong> assume variância = média (situação ideal pra eventos raros independentes). <strong>Negative Binomial</strong> permite variância &gt; média (overdispersion), comum em pontos/rebotes onde tem "noites boas e ruins".</p>
+          <p>O app escolhe automaticamente: se variância dos jogos &gt; 1.05 × média, usa NegBinomial. Senão, Poisson. Stats como steals/blocks são geralmente Poisson; pontos/PRA são NegBinomial.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Reverse Line Movement (RLM)</h4>
+          <p>Quando 75% dos apostadores tão num lado mas a linha mexe contra eles. Ex: 80% das apostas no Lakers -5, mas a linha desce pra Lakers -4. Significa que dinheiro grande (sharps) entrou do outro lado e a casa moveu pra equilibrar. RLM é um dos sinais mais fortes de edge real existente.</p>
+        </div>
+
+        <div class="concept-card">
+          <h4>Sample Size (Tamanho da Amostra)</h4>
+          <p>Quantos jogos tu tá usando como base. <strong>Mínimo recomendado: 15 jogos.</strong> Abaixo disso, o erro estatístico fica grande demais. Ideal: 30-50 jogos. Acima de 60, retorno marginal porque jogos muito antigos podem refletir um jogador "diferente" (machucado, mudou de papel).</p>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <div id="tab-profile" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[P1]</span> Profile · Portable Snapshot</h2>
+        <span class="meta" id="profile-meta">stand-alone</span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size: 12px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 14px;">
+          Esse terminal é completamente client-side: tudo roda no teu navegador, nada vai pra servidor. Teu perfil (bets, settings, histórico) fica salvo no <strong>localStorage</strong> do navegador atual e pode ser exportado pra um arquivo <code style="background:var(--bg);padding:2px 6px;color:var(--accent);">.json</code> que tu controla.
+          <br><br>
+          <strong>Pra usar em outro dispositivo:</strong> clica em <strong style="color:var(--accent);">💾 Save Profile</strong> (no topo). Vai baixar um arquivo .json. Abre o terminal no outro dispositivo, escolhe "Carregar Perfil Existente" e seleciona esse arquivo.
+        </div>
+
+        <div class="metrics-grid" style="margin-bottom: 14px;">
+          <div class="metric">
+            <div class="lbl">Profile ID</div>
+            <div class="val" id="p-profile-id" style="font-size: 14px;">–</div>
+            <div class="delta">unique to this profile</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Sessions Saved</div>
+            <div class="val" id="p-iter-count">0</div>
+            <div class="delta">profile saves</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Created</div>
+            <div class="val" id="p-created" style="font-size: 14px;">–</div>
+            <div class="delta">first run</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Last Device</div>
+            <div class="val" id="p-last-device" style="font-size: 14px;">–</div>
+            <div class="delta" id="p-last-time">–</div>
+          </div>
+        </div>
+
+        <h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin: 18px 0 8px;">Device History</h3>
+        <div id="device-history" style="background: var(--bg); border: 1px solid var(--line-2); padding: 10px; max-height: 200px; overflow-y: auto; font-size: 11px;"></div>
+
+        <h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin: 18px 0 8px;">Storage Stats</h3>
+        <div class="metrics-grid">
+          <div class="metric">
+            <div class="lbl">Total Bets</div>
+            <div class="val" id="p-bet-count">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Settled</div>
+            <div class="val" id="p-bet-settled">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Pending</div>
+            <div class="val" id="p-bet-pending">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Profile File Size</div>
+            <div class="val" id="p-snapshot-size">–</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; padding: 14px; background: rgba(248,113,113,0.05); border: 1px solid rgba(248,113,113,0.3);">
+          <h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--red); margin-bottom: 8px;">Danger Zone</h3>
+          <div style="font-size: 11px; color: var(--ink-dim); margin-bottom: 10px; line-height: 1.5;">
+            Use <strong>Reset Profile</strong> when you receive this file from someone else and want a fresh start. This wipes ALL data: bets, settings, API key, cache. The HTML code remains intact.
+          </div>
+          <button class="danger" id="reset-profile-btn" style="width: auto; padding: 8px 16px; font-size: 11px;">Reset Profile (start fresh)</button>
+        </div>
+
+        <details style="margin-top: 18px;">
+          <summary>▸ Como funciona a portabilidade (detalhes técnicos)</summary>
+          <div class="details-body">
+            <div style="font-size: 11px; color: var(--ink-faint); line-height: 1.7;">
+              O perfil é exportado como um arquivo <code style="color: var(--accent);">.json</code> contendo: profile metadata (ID único, sessões, histórico de devices), todas as bets registradas, configurações, API key, e blend de modelo. Tamanho típico: 1-50 KB dependendo de quantas bets tu tem.<br><br>
+              Quando tu carrega esse JSON, ele substitui o conteúdo do localStorage do navegador. <strong>Cada navegador armazena UMA sessão por vez.</strong> Pra trabalhar em vários dispositivos, sempre baixa o perfil atual antes de mudar de dispositivo.<br><br>
+              <strong>Boa prática:</strong> sempre clica em <strong>Save Profile</strong> antes de fechar a aba. Toda mudança (bet logada, settings alteradas) marca o status como "unsaved changes — export!" — não ignora esse aviso.
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[P2]</span> Auto-Settlement</h2>
+        <span class="meta" id="settle-meta">checks pending bets vs game results</span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size: 12px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 14px;">
+          For each pending bet, fetches the actual game result from the API and marks Win/Loss automatically. Also computes how close the model's prediction was to reality — useful for calibrating over time.
+        </div>
+        <button class="primary" id="auto-settle-btn" style="width: auto; padding: 8px 18px;">Run Auto-Settlement</button>
+        <div id="settle-result" style="margin-top: 14px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-settings" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[S1]</span> API Authentication</h2>
+        <span class="meta" id="auth-meta">no key</span>
+      </div>
+      <div class="panel-body">
+        <div class="api-row">
+          <div>
+            <label>BALLDONTLIE API KEY</label>
+            <input type="password" id="api-key" placeholder="paste your key" autocomplete="off" />
+          </div>
+          <button class="primary" id="save-key">Save Key</button>
+        </div>
+        <div class="help">
+          Get a free key at <a href="https://app.balldontlie.io" target="_blank" rel="noopener">app.balldontlie.io</a>. Stored only in your browser. Free tier = 5 req/min.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2><span class="num">[S2]</span> Model Settings</h2></div>
+      <div class="panel-body">
+        <div class="prop-config">
+          <div><label>Min Edge for BET (%) <span class="tip" data-tip="Edge mínimo (modelo - implícita) pra recomendar BET. 5% é o mínimo profissional. Acima disso o sinal é forte o bastante pra superar variância e margem da casa.">?</span></label><input type="number" id="thr-bet" step="0.5" /></div>
+          <div><label>Min Edge for LEAN (%) <span class="tip" data-tip="Edge mínimo pra recomendar LEAN (entre BET e PASS). Sinal fraco mas positivo. Útil pra apostar com stake reduzido.">?</span></label><input type="number" id="thr-lean" step="0.5" /></div>
+          <div><label>Recent Weight (last 5) <span class="tip" data-tip="Peso dos últimos 5 jogos no modelo Empirical. 1.5 = últimos 5 contam 1.5x mais que jogos antigos. Maior valor = mais sensível a forma recente.">?</span></label><input type="number" id="weight-recent" step="0.1" /></div>
+          <div><label>Min Sample (warn if N<)</label><input type="number" id="min-sample" step="1" /></div>
+        </div>
+        <div class="prop-config" style="margin-top:10px;">
+          <div><label>Bankroll (units) <span class="tip" data-tip="Banca total disponível pra apostas, em unidades. Usada pelo Kelly pra calcular stake. Se tu tem R$1000 e cada unidade = R$10, banca = 100. Recomendado: nunca apostar mais que 5% da banca em UMA aposta.">?</span></label><input type="number" id="bankroll" step="1" /></div>
+          <div><label>Kelly Fraction <span class="tip" data-tip="Fração do Kelly puro a usar. 0.25 = Quarter Kelly, padrão profissional (mais seguro). 0.5 = Half Kelly. 1.0 = Full Kelly (agressivo demais na prática). Quanto MENOR a fração, menos volatilidade na banca.">?</span></label><input type="number" id="kelly-frac" step="0.05" min="0" max="1" /></div>
+          <div><label>Bayesian Prior Weight <span class="tip" data-tip="Quanto peso dar à média histórica do jogador (vs forma recente). 30 = padrão equilibrado. Maior (50+) = mais conservador, menos influência de hot/cold streaks. Menor (10) = confia mais no presente.">?</span></label><input type="number" id="bayes-prior" step="5" min="0" max="200" /></div>
+          <div>
+            <label>Model Blend</label>
+            <select id="model-blend">
+              <option value="balanced">Balanced (33/33/33)</option>
+              <option value="empirical">Empirical-heavy (60/20/20)</option>
+              <option value="poisson">Distribution-heavy (20/60/20)</option>
+              <option value="bayes">Bayesian-heavy (20/20/60)</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="primary" id="save-settings" style="width:auto; padding:8px 18px;">Save</button>
+          <button class="ghost" id="reset-settings" style="width:auto; padding:8px 18px;">Reset Defaults</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2><span class="num">[S3]</span> Cache</h2></div>
+      <div class="panel-body">
+        <div style="font-size:12px; color:var(--ink-dim); margin-bottom:10px;">Cached 6h to save API calls.</div>
+        <div id="cache-info" style="font-size:11px; color:var(--ink-faint); margin-bottom:10px;"></div>
+        <button class="danger" id="clear-cache" style="width:auto; padding:6px 14px; font-size:11px;">Clear Cache</button>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <div>PROP TERMINAL v3 · single-file · client-side · 100% free tier compatible</div>
+    <div class="disclaimer">
+      Multi-model: Empirical hit-rate × Poisson/NegBinomial × Bayesian-smoothed mean, blended. Pace via possession reconstruction. Real usage via team logs aggregation. League-wide injury feed. Kelly stake sizing. Past performance ≠ future. Bet responsibly.
+    </div>
+  </footer>
+
+</div>
+
+<script>
+"use strict";
+
+const STATE = {
+  apiKey: localStorage.getItem('bdl_key') || '',
+  player: null, rawLogs: [], filteredLogs: [],
+  bets: JSON.parse(localStorage.getItem('bdl_bets') || '[]'),
+  settings: Object.assign({
+    thrBet: 5, thrLean: 2, weightRecent: 1.5, minSample: 15,
+    bankroll: 100, kellyFrac: 0.25, bayesPrior: 30, modelBlend: 'balanced',
+  }, JSON.parse(localStorage.getItem('bdl_settings') || '{}')),
+  cache: JSON.parse(localStorage.getItem('bdl_cache') || '{}'),
+  profile: JSON.parse(localStorage.getItem('bdl_profile') || 'null'),
+  searchTimer: null, teams: null, injuries: null, lastAnalysis: null,
+  isDirty: false, // true when changes made since last snapshot
+};
+const API_BASE = 'https://api.balldontlie.io/v1';
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function $(s) { return document.querySelector(s); }
+function $$(s) { return document.querySelectorAll(s); }
+function fmt(n, dec=1) { if (n === null || n === undefined || isNaN(n)) return '–'; return Number(n).toFixed(dec); }
+function pct(p, dec=1) { if (p === null || p === undefined || isNaN(p)) return '–'; return (p*100).toFixed(dec) + '%'; }
+function impliedProb(odd) { return 1 / odd; }
+function evPct(p, odd) { return p * (odd - 1) - (1 - p); }
+function avg(a) { return a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0; }
+function median(a) {
+  if (!a.length) return 0;
+  const s = [...a].sort((x,y)=>x-y);
+  const m = Math.floor(s.length/2);
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+}
+function stdev(a) {
+  if (a.length<2) return 0;
+  const m = avg(a);
+  return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function computeStat(g, stat) {
+  switch (stat) {
+    case 'pts': return g.pts || 0;
+    case 'reb': return g.reb || 0;
+    case 'ast': return g.ast || 0;
+    case 'fg3m': return g.fg3m || 0;
+    case 'stl': return g.stl || 0;
+    case 'blk': return g.blk || 0;
+    case 'turnover': return g.turnover || 0;
+    case 'pra': return (g.pts||0)+(g.reb||0)+(g.ast||0);
+    case 'pr': return (g.pts||0)+(g.reb||0);
+    case 'pa': return (g.pts||0)+(g.ast||0);
+    case 'ra': return (g.reb||0)+(g.ast||0);
+    case 'stl_blk': return (g.stl||0)+(g.blk||0);
+    case 'min': {
+      if (typeof g.min === 'string' && g.min.includes(':')) {
+        const [m,s] = g.min.split(':').map(Number);
+        return m + (s||0)/60;
+      }
+      return Number(g.min) || 0;
+    }
+    default: return 0;
+  }
+}
+const STAT_LABELS = { pts:'PTS', reb:'REB', ast:'AST', fg3m:'3PM', stl:'STL', blk:'BLK', pra:'P+R+A', pr:'P+R', pa:'P+A', ra:'R+A', stl_blk:'STL+BLK', turnover:'TOV', min:'MIN' };
+
+const STAT_NAMES_PT = { pts:'pontos', reb:'rebotes', ast:'assistências', fg3m:'cestas de 3', stl:'roubadas', blk:'tocos', pra:'pontos+rebotes+assistências', pr:'pontos+rebotes', pa:'pontos+assistências', ra:'rebotes+assistências', stl_blk:'roubadas+tocos', turnover:'turnovers', min:'minutos' };
+
+// === TOOLTIPS DICTIONARY ===
+const TIPS = {
+  edge: 'Edge é a diferença entre a probabilidade real do evento (segundo o modelo) e a probabilidade implícita da odd. Edge ≥ 5% é o mínimo profissional. Apostas com edge positivo são lucrativas a longo prazo pela Lei dos Grandes Números.',
+  ev: 'Expected Value (EV) é o lucro médio por unidade apostada. Calculado como p×(odd-1) - (1-p). EV positivo = aposta lucrativa em média. EV negativo = perdedora.',
+  implied: 'Probabilidade Implícita = 1/odd. É a probabilidade que a odd "diz" que vai acontecer. Soma dos dois lados ultrapassa 100%, esse extra é a margem da casa (4-8% em props NBA).',
+  modelProb: 'Probabilidade que o modelo estima do evento ocorrer, baseado em jogos passados ponderados, ajustes de pace, matchup e regressão Bayesiana. Quanto maior que a implícita, melhor.',
+  kelly: 'Kelly Criterion calcula o tamanho ÓTIMO da aposta dado o edge. Apostar Quarter Kelly (25% do Kelly puro) é o padrão profissional — mais conservador, drawdowns muito menores.',
+  clv: 'Closing Line Value: comparação entre a odd que tu pegou e a odd no fechamento (pré-jogo). CLV positivo consistente = tu tá vendo coisa que o mercado depois precifica. Indicador mais confiável de skill, melhor que win rate.',
+  variance: 'Variância e CV (Coefficient of Variation) medem inconsistência. CV alto (>0.5) = boom/bust. CV baixo (<0.2) = consistente. CV alto torna previsão mais difícil mas pode criar valor em linhas extremas.',
+  pace: 'Pace = possessions por 48min. Liga média ~99. Confronto entre paces diferentes resulta em pace médio. Time fast-paced contra slow-paced gera pace intermediário, afetando projeções de pontos em 5-10%.',
+  usage: 'Usage Rate (USG%) é a fração de possessions terminadas pelo jogador. Mudanças no USG são o sinal MAIS preditivo de mudança de produção. USG real precisa de team possessions; o app calcula com toggle, ou usa proxy mais simples.',
+  poisson: 'Modelo estatístico que calcula P(X > line) assumindo distribuição Poisson (eventos discretos como assists, blocks). Usa NegBinomial quando variância > média (comum em pontos).',
+  bayesian: 'Modelo Bayesiano regrida tua média recente para média histórica do jogador (prior). Reduz overreaction a streaks de 5-10 jogos. Prior weight controla quanto regredir.',
+  negbinom: 'Negative Binomial: distribuição estatística pra contagens com variância > média. Mais flexível que Poisson, ideal pra pontos/PRA na NBA.',
+  empirical: 'Hit Rate Empírico: % das vezes que o jogador bateu a linha nos jogos passados, ponderado por recência (últimos 5 jogos pesam 1.5x). Direto, simples, mas vulnerável a streaks.',
+  matchup: 'Matchup Defensivo: análise da defesa do adversário contra jogadores da mesma posição. Calculado dos últimos 15 jogos do oponente, ajusta a projeção do modelo Poisson em 40% do desvio.',
+  rest: 'Rest Days = quantos dias o jogador descansou desde o último jogo. 0 = back-to-back (B2B), titulares geralmente perdem 3-6 minutos por fadiga. 2+ = bem descansado.',
+  sample: 'Tamanho da amostra (N): quantos jogos compõem a análise. Mínimo recomendado: 15. Ideal: 30-50. Abaixo de 15, erro estatístico engole o edge.',
+  edge_blend: 'Final Probability é a média ponderada dos 3 modelos (Empirical, Distribution, Bayesian). Quando os 3 concordam = alta confiança. Quando discordam = baixa confiança, evite apostar.',
+  bankroll: 'Banca total disponível. Usada pra calcular stake em unidades. Recomendado: nunca apostar mais que 5% da banca em UMA aposta, mesmo com Kelly indicando.',
+  cv: 'CV = stdev/mean. Mede inconsistência relativa. Jogador com avg 20 e CV 0.5 oscila bastante (pode fazer 10 ou 30 fácil). CV 0.15 = previsível.',
+  paceAdj: 'Multiplicador aplicado à projeção do jogador baseado no pace esperado do confronto. >1 = jogo deve ser mais rápido que padrão do jogador, projeção sobe.',
+  hitRate: 'Hit Rate: % dos jogos (filtrados) onde o jogador bateu a linha do lado escolhido. Dado bruto, sem ajustes.',
+  models_agree: 'Quando os 3 modelos (Empirical, Distribution, Bayesian) dão probabilidades similares (spread <4%), confiança alta. Spread >10% = modelos discordam, sinal fraco.',
+};
+
+function tip(key) {
+  const text = TIPS[key];
+  if (!text) return '';
+  return `<span class="tip" data-tip="${text.replace(/"/g, '&quot;')}">?</span>`;
+}
+
+setInterval(() => {
+  const d = new Date();
+  $('#clock').textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}, 1000);
+
+$$('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    $$('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const which = t.dataset.tab;
+    ['analyze','injuries','tracker','learn','profile','settings'].forEach(name => {
+      $('#tab-' + name).classList.toggle('hidden', which !== name);
+    });
+    if (which === 'tracker') renderTracker();
+    if (which === 'settings') renderCacheInfo();
+    if (which === 'injuries' && !STATE.injuries) refreshInjuries();
+    if (which === 'profile') renderProfile();
+  });
+});
+
+// === STATISTICAL HELPERS ===
+function poissonPMF(k, lambda) {
+  if (k < 0 || lambda <= 0) return 0;
+  let logP = -lambda + k * Math.log(lambda);
+  for (let i=2; i<=k; i++) logP -= Math.log(i);
+  return Math.exp(logP);
+}
+function poissonCDF(k, lambda) {
+  let s = 0;
+  for (let i=0; i<=k; i++) s += poissonPMF(i, lambda);
+  return Math.min(1, s);
+}
+function lgamma(x) {
+  const g = 7;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+  x -= 1;
+  let a = c[0];
+  const t = x + g + 0.5;
+  for (let i=1; i<g+2; i++) a += c[i] / (x + i);
+  return 0.5*Math.log(2*Math.PI) + (x + 0.5)*Math.log(t) - t + Math.log(a);
+}
+function negBinomPMF(k, n, p) {
+  if (k < 0) return 0;
+  const logComb = lgamma(k + n) - lgamma(k + 1) - lgamma(n);
+  return Math.exp(logComb + n * Math.log(p) + k * Math.log(1 - p));
+}
+function negBinomCDF(k, mean, variance) {
+  if (variance <= mean) return poissonCDF(k, mean);
+  const p = mean / variance;
+  const n = mean * mean / (variance - mean);
+  let s = 0;
+  for (let i=0; i<=k; i++) s += negBinomPMF(i, n, p);
+  return Math.min(1, s);
+}
+function probOver(line, mean, variance, useNB=true) {
+  const k = Math.floor(line);
+  if (useNB && variance > mean * 1.05) return 1 - negBinomCDF(k, mean, variance);
+  return 1 - poissonCDF(k, mean);
+}
+function probUnder(line, mean, variance, useNB=true) {
+  const k = Math.floor(line);
+  if (useNB && variance > mean * 1.05) return negBinomCDF(k, mean, variance);
+  return poissonCDF(k, mean);
+}
+function kelly(p, odd) {
+  const b = odd - 1;
+  const f = (b * p - (1-p)) / b;
+  return Math.max(0, f);
+}
+
+// === API ===
+async function bdlFetch(path, params={}, useCache=true) {
+  if (!STATE.apiKey) throw new Error('no api key — set in Settings tab');
+  const url = new URL(API_BASE + path);
+  for (const [k,v] of Object.entries(params)) {
+    if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
+    else if (v !== undefined && v !== null) url.searchParams.set(k, v);
+  }
+  const cacheKey = url.toString();
+  if (useCache && STATE.cache[cacheKey]) {
+    const c = STATE.cache[cacheKey];
+    if (Date.now() - c.t < CACHE_TTL_MS) return c.d;
+  }
+  const res = await fetch(url, { headers: { 'Authorization': STATE.apiKey } });
+  if (res.status === 429) {
+    await sleep(13000);
+    return bdlFetch(path, params, useCache);
+  }
+  if (!res.ok) {
+    const txt = await res.text().catch(()=>'');
+    throw new Error(`HTTP ${res.status}: ${txt.slice(0,200)}`);
+  }
+  const data = await res.json();
+  if (useCache) {
+    STATE.cache[cacheKey] = { t: Date.now(), d: data };
+    try { localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache)); }
+    catch(e) {
+      const keys = Object.keys(STATE.cache).sort((a,b) => STATE.cache[a].t - STATE.cache[b].t);
+      keys.slice(0, Math.floor(keys.length/2)).forEach(k => delete STATE.cache[k]);
+      try { localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache)); } catch(e2) { STATE.cache = {}; }
+    }
+  }
+  return data;
+}
+
+// === AUTH ===
+function refreshAuthMeta() {
+  if (STATE.apiKey) {
+    $('#auth-meta').textContent = 'key set · ' + STATE.apiKey.slice(0,4) + '...' + STATE.apiKey.slice(-4);
+    $('#api-key').value = STATE.apiKey;
+  } else $('#auth-meta').textContent = 'no key';
+}
+$('#save-key').addEventListener('click', () => {
+  const v = $('#api-key').value.trim();
+  if (!v) return;
+  STATE.apiKey = v;
+  localStorage.setItem('bdl_key', v);
+  refreshAuthMeta();
+});
+refreshAuthMeta();
+
+// === SEASONS ===
+function getCurrentSeason() {
+  const now = new Date();
+  return (now.getMonth() >= 9) ? now.getFullYear() : now.getFullYear() - 1;
+}
+function buildSeasonsCheckboxes() {
+  const cur = getCurrentSeason();
+  const seasons = [cur, cur-1, cur-2];
+  const ctr = $('#seasons-checks');
+  ctr.innerHTML = '';
+  seasons.forEach((s, i) => {
+    const id = 'season-' + s;
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" id="${id}" value="${s}" ${i===0?'checked':''}> ${s}-${(s+1).toString().slice(-2)}`;
+    ctr.appendChild(lbl);
+  });
+}
+buildSeasonsCheckboxes();
+
+// === TEAMS ===
+async function loadTeams() {
+  if (STATE.teams) return STATE.teams;
+  try {
+    const data = await bdlFetch('/teams', {});
+    STATE.teams = (data.data || []).filter(t => t.full_name);
+    STATE.teams.sort((a,b) => a.full_name.localeCompare(b.full_name));
+    const sel = $('#opponent-select');
+    const sel2 = $('#injury-team-filter');
+    STATE.teams.forEach(t => {
+      const o1 = document.createElement('option');
+      o1.value = t.id; o1.textContent = `${t.abbreviation} — ${t.full_name}`;
+      sel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = t.id; o2.textContent = `${t.abbreviation} — ${t.full_name}`;
+      sel2.appendChild(o2);
+    });
+  } catch(e) { console.warn('teams load fail', e.message); }
+}
+loadTeams();
+
+// === SEARCH ===
+$('#player-search').addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(STATE.searchTimer);
+  if (!q) { $('#search-results').classList.add('hidden'); return; }
+  if (!STATE.apiKey) { $('#search-meta').textContent = 'set api key in Settings'; return; }
+  $('#search-meta').innerHTML = '<span class="loader"></span>searching';
+  STATE.searchTimer = setTimeout(() => searchPlayer(q), 300);
+});
+async function searchPlayer(q) {
+  try {
+    const data = await bdlFetch('/players', { search: q, per_page: 12 });
+    const box = $('#search-results');
+    box.innerHTML = '';
+    if (!data.data || !data.data.length) {
+      box.innerHTML = '<div class="row"><span class="nm">no matches</span></div>';
+      box.classList.remove('hidden');
+      $('#search-meta').textContent = '0 results';
+      return;
+    }
+    for (const p of data.data) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const team = p.team ? (p.team.abbreviation || '') : '–';
+      row.innerHTML = `<span class="nm">${p.first_name} ${p.last_name}</span><span class="tm">${team} · id ${p.id}</span>`;
+      row.addEventListener('click', () => selectPlayer(p));
+      box.appendChild(row);
+    }
+    box.classList.remove('hidden');
+    $('#search-meta').textContent = data.data.length + ' results';
+  } catch (err) { $('#search-meta').textContent = 'err: ' + err.message; }
+}
+function selectPlayer(p) {
+  STATE.player = p;
+  $('#search-results').classList.add('hidden');
+  $('#player-search').value = '';
+  const team = p.team ? (p.team.full_name || p.team.abbreviation) : '–';
+  const box = $('#selected-player-box');
+  box.className = 'selected-player';
+  box.innerHTML = `
+    <div><span class="name">${p.first_name} ${p.last_name}</span> · <span style="color:var(--ink-dim)">${team}</span> · <span style="color:var(--ink-faint)">id ${p.id} · pos ${p.position||'–'}</span></div>
+    <span class="clear" id="clear-player">[ clear ]</span>
+  `;
+  box.classList.remove('hidden');
+  $('#clear-player').addEventListener('click', () => {
+    STATE.player = null; STATE.rawLogs = [];
+    box.classList.add('hidden');
+    $('#analyze-btn').disabled = true;
+    $('#results-panel').classList.add('hidden');
+  });
+  $('#analyze-btn').disabled = false;
+  $('#search-meta').textContent = 'selected · ' + p.first_name + ' ' + p.last_name;
+}
+$('#find-teammate-btn').addEventListener('click', async () => {
+  const name = prompt("Search teammate by name:");
+  if (!name) return;
+  try {
+    const data = await bdlFetch('/players', { search: name, per_page: 5 });
+    if (!data.data || !data.data.length) { alert('no match'); return; }
+    const choices = data.data.map(p => `${p.id} — ${p.first_name} ${p.last_name} (${p.team?p.team.abbreviation:'?'})`).join('\n');
+    const pick = prompt("Found:\n" + choices + "\n\nType the ID:");
+    if (pick) $('#teammate-input').value = pick.trim();
+  } catch(e) { alert('err: ' + e.message); }
+});
+
+// === PROGRESS ===
+function showProgress(p, label) {
+  $('#progress-bar').classList.remove('hidden');
+  $('#progress-bar-fill').style.width = (p*100) + '%';
+  if (label) $('#result-meta').innerHTML = `<span class="loader"></span>${label}`;
+}
+function hideProgress() {
+  $('#progress-bar').classList.add('hidden');
+  $('#progress-bar-fill').style.width = '0%';
+}
+
+// === FETCH LOGS ===
+async function fetchGameLogsMulti(playerId, seasons) {
+  let all = [];
+  let progress = 0;
+  for (const season of seasons) {
+    showProgress(progress / seasons.length, `fetching ${season}-${(season+1).toString().slice(-2)}...`);
+    let cursor = null;
+    for (let pg=0; pg<5; pg++) {
+      const params = { 'seasons[]': season, 'player_ids[]': playerId, per_page: 100 };
+      if (cursor) params.cursor = cursor;
+      const data = await bdlFetch('/stats', params);
+      if (!data.data || !data.data.length) break;
+      all = all.concat(data.data);
+      if (!data.meta || !data.meta.next_cursor) break;
+      cursor = data.meta.next_cursor;
+    }
+    progress++;
+  }
+  all = all.filter(g => computeStat(g, 'min') > 0);
+  all.sort((a,b) => new Date(b.game.date) - new Date(a.game.date));
+  return all;
+}
+
+// === ANNOTATIONS ===
+function annotateRestDays(logs) {
+  const asc = [...logs].sort((a,b) => new Date(a.game.date) - new Date(b.game.date));
+  for (let i=0; i<asc.length; i++) {
+    if (i === 0) asc[i]._restDays = null;
+    else {
+      const prev = new Date(asc[i-1].game.date);
+      const cur = new Date(asc[i].game.date);
+      asc[i]._restDays = Math.round((cur - prev) / (1000*60*60*24)) - 1;
+    }
+  }
+  return asc.sort((a,b) => new Date(b.game.date) - new Date(a.game.date));
+}
+function annotateVenue(logs) {
+  for (const g of logs) {
+    if (!g.game) { g._venue = '?'; continue; }
+    const playerTeamId = g.team ? g.team.id : null;
+    if (playerTeamId === g.game.home_team_id) g._venue = 'home';
+    else if (playerTeamId === g.game.visitor_team_id) g._venue = 'away';
+    else g._venue = '?';
+    g._oppId = (playerTeamId === g.game.home_team_id) ? g.game.visitor_team_id : g.game.home_team_id;
+  }
+  return logs;
+}
+
+// === REAL USAGE COMPUTATION ===
+async function computeRealUsage(gameLogs) {
+  let progress = 0;
+  for (const g of gameLogs) {
+    showProgress(progress / gameLogs.length, `computing real usage ${progress+1}/${gameLogs.length}...`);
+    try {
+      const data = await bdlFetch('/stats', { 'game_ids[]': g.game.id, per_page: 100 });
+      const teamStats = (data.data || []).filter(s => s.team && s.team.id === g.team.id);
+      const teamFGA = teamStats.reduce((s,x) => s + (x.fga||0), 0);
+      const teamFTA = teamStats.reduce((s,x) => s + (x.fta||0), 0);
+      const teamTOV = teamStats.reduce((s,x) => s + (x.turnover||0), 0);
+      const teamMinTotal = teamStats.reduce((s,x) => s + computeStat(x,'min'), 0);
+      const teamMin = teamMinTotal / 5;
+      const playerMin = computeStat(g, 'min');
+      const playerPlays = (g.fga||0) + 0.44*(g.fta||0) + (g.turnover||0);
+      const teamPlays = teamFGA + 0.44*teamFTA + teamTOV;
+      if (playerMin > 0 && teamPlays > 0 && teamMin > 0) {
+        g._usgReal = 100 * (playerPlays * teamMin) / (playerMin * teamPlays);
+      } else g._usgReal = null;
+      const teamOREB = teamStats.reduce((s,x)=>s+(x.oreb||0),0);
+      g._teamPoss = teamFGA + 0.44*teamFTA - teamOREB + teamTOV;
+      g._teamMin = teamMin;
+      g._teamPace = teamMin > 0 ? g._teamPoss * 48 / teamMin : null;
+    } catch(e) { g._usgReal = null; }
+    progress++;
+  }
+  return gameLogs;
+}
+
+// === OPPONENT PACE & DEFENSE ===
+async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
+  showProgress(0, `analyzing opponent...`);
+  const data = await bdlFetch('/games', { 'team_ids[]': opponentTeamId, 'seasons[]': season, per_page: 25 });
+  if (!data.data || !data.data.length) return null;
+  const played = data.data.filter(g => g.status === 'Final').slice(0, 15);
+  if (!played.length) return null;
+  const gameIds = played.map(g => g.id);
+  const stats = await bdlFetch('/stats', { 'game_ids[]': gameIds, per_page: 200 });
+  const oppPlayerStats = (stats.data || []);
+  const gameMap = {};
+  for (const s of oppPlayerStats) {
+    if (!gameMap[s.game.id]) gameMap[s.game.id] = { oppTeam: [], otherTeam: [] };
+    if (s.team && s.team.id === Number(opponentTeamId)) gameMap[s.game.id].oppTeam.push(s);
+    else gameMap[s.game.id].otherTeam.push(s);
+  }
+  let totalPace = 0, paceCount = 0;
+  let allowedStats = [];
+  for (const gid of Object.keys(gameMap)) {
+    const { oppTeam, otherTeam } = gameMap[gid];
+    if (oppTeam.length === 0 || otherTeam.length === 0) continue;
+    const oppFGA = oppTeam.reduce((s,x) => s+(x.fga||0), 0);
+    const oppFTA = oppTeam.reduce((s,x) => s+(x.fta||0), 0);
+    const oppTOV = oppTeam.reduce((s,x) => s+(x.turnover||0), 0);
+    const oppOREB = oppTeam.reduce((s,x) => s+(x.oreb||0), 0);
+    const oppMinTotal = oppTeam.reduce((s,x) => s+computeStat(x,'min'), 0);
+    const oppMin = oppMinTotal / 5;
+    const poss = oppFGA + 0.44*oppFTA - oppOREB + oppTOV;
+    if (oppMin > 0) { totalPace += poss * 48 / oppMin; paceCount++; }
+    for (const s of otherTeam) {
+      if (computeStat(s, 'min') < 15) continue;
+      if (positionMatch(s.player.position, position)) allowedStats.push(s);
+    }
+  }
+  const oppPace = paceCount > 0 ? totalPace / paceCount : null;
+  if (!allowedStats.length) return { pace: oppPace, allowed: null, sample: 0, games: played.length };
+  return {
+    pace: oppPace,
+    allowed: {
+      pts: avg(allowedStats.map(s => s.pts || 0)),
+      reb: avg(allowedStats.map(s => s.reb || 0)),
+      ast: avg(allowedStats.map(s => s.ast || 0)),
+      fg3m: avg(allowedStats.map(s => s.fg3m || 0)),
+      stl: avg(allowedStats.map(s => s.stl || 0)),
+      blk: avg(allowedStats.map(s => s.blk || 0)),
+    },
+    sample: allowedStats.length, games: played.length,
+  };
+}
+function positionMatch(theirPos, myPos) {
+  if (!myPos || !theirPos) return true;
+  const m = myPos.toUpperCase(), t = theirPos.toUpperCase();
+  if (m.includes('G') && t.includes('G')) return true;
+  if (m.includes('F') && t.includes('F')) return true;
+  if (m.includes('C') && t.includes('C')) return true;
+  return false;
+}
+
+// === TEAMMATE FILTER ===
+async function annotateTeammateGames(logs, teammateId) {
+  const gameIds = [...new Set(logs.map(g => g.game.id))];
+  const batchSize = 25;
+  const presence = {};
+  for (let i=0; i<gameIds.length; i+=batchSize) {
+    const batch = gameIds.slice(i, i+batchSize);
+    showProgress((i+batchSize)/gameIds.length, `teammate check ${i+batch.length}/${gameIds.length}`);
+    const params = { 'game_ids[]': batch, 'player_ids[]': teammateId, per_page: 100 };
+    const data = await bdlFetch('/stats', params);
+    const present = new Set();
+    for (const s of (data.data||[])) {
+      if (computeStat(s, 'min') > 5) present.add(s.game.id);
+    }
+    for (const gid of batch) presence[gid] = present.has(gid);
+  }
+  for (const g of logs) g._teammateWith = presence[g.game.id] || false;
+  return logs;
+}
+
+// === FILTERS ===
+function applyFilters(logs, filters) {
+  let out = logs.slice();
+  if (filters.venue !== 'all') out = out.filter(g => g._venue === filters.venue);
+  if (filters.rest !== 'all') {
+    out = out.filter(g => {
+      const r = g._restDays;
+      if (r === null) return false;
+      if (filters.rest === 'b2b') return r === 0;
+      if (filters.rest === 'normal') return r === 1;
+      if (filters.rest === 'rested') return r >= 2;
+      return true;
+    });
+  }
+  if (filters.teammateState !== 'any' && filters.teammateId) {
+    out = out.filter(g => filters.teammateState === 'with' ? g._teammateWith : !g._teammateWith);
+  }
+  return out;
+}
+
+// === ANALYSIS ===
+$('#analyze-btn').addEventListener('click', runAnalysis);
+$('#clear-btn').addEventListener('click', () => {
+  $('#line-input').value = ''; $('#odd-input').value = '';
+  $('#results-panel').classList.add('hidden');
+});
+
+async function runAnalysis() {
+  if (!STATE.player) return;
+  const line = parseFloat($('#line-input').value);
+  const odd = parseFloat($('#odd-input').value);
+  const stat = $('#stat-select').value;
+  const side = $('#side-select').value;
+  if (isNaN(line) || isNaN(odd) || odd <= 1) { alert('Invalid line/odd'); return; }
+  const seasons = Array.from($$('#seasons-checks input:checked')).map(c => Number(c.value));
+  if (!seasons.length) { alert('Select at least one season'); return; }
+  const filters = {
+    venue: $('#venue-select').value,
+    rest: $('#rest-select').value,
+    teammateId: $('#teammate-input').value.trim() ? Number($('#teammate-input').value.trim()) : null,
+    teammateState: $('#teammate-state').value,
+    opponentId: $('#opponent-select').value || null,
+    advUsage: $('#adv-usage').checked,
+  };
+  $('#analyze-btn').disabled = true;
+  $('#results-panel').classList.remove('hidden');
+  $('#results-body').innerHTML = '<div style="padding:30px; text-align:center; color:var(--ink-dim);">starting...</div>';
+  try {
+    let logs = await fetchGameLogsMulti(STATE.player.id, seasons);
+    if (!logs.length) throw new Error('No logs found');
+    logs = annotateVenue(logs);
+    logs = annotateRestDays(logs);
+    if (filters.teammateId && filters.teammateState !== 'any') {
+      logs = await annotateTeammateGames(logs, filters.teammateId);
+    }
+    if (filters.advUsage) logs = await computeRealUsage(logs);
+    STATE.rawLogs = logs;
+    const filtered = applyFilters(logs, filters);
+    let oppData = null;
+    if (filters.opponentId) {
+      oppData = await fetchOpponentPaceAndDefense(filters.opponentId, seasons[0], STATE.player.position);
+    }
+    hideProgress();
+    STATE.filteredLogs = filtered;
+    if (!filtered.length) {
+      $('#results-body').innerHTML = `<div style="padding:30px; text-align:center; color:var(--red);">No games match filters.</div>`;
+      $('#result-meta').textContent = '0 games';
+      $('#analyze-btn').disabled = false;
+      return;
+    }
+    renderResults({ stat, side, line, odd, seasons, filters, allLogs: logs, oppData });
+    $('#result-meta').textContent = `${filtered.length}/${logs.length} games match`;
+  } catch (err) {
+    console.error(err);
+    $('#results-body').innerHTML = `<div style="padding:30px; color:var(--red);">Error: ${err.message}</div>`;
+    $('#result-meta').textContent = 'err';
+    hideProgress();
+  } finally {
+    $('#analyze-btn').disabled = false;
+  }
+}
+
+// === REASONING NARRATIVE GENERATOR ===
+function generateReasoning(ctx) {
+  const {
+    player, stat, side, line, odd, N,
+    finalProb, empProb, poisProb, bayesProb,
+    impl, edge, ev, decision,
+    meanFiltered, meanAll, last5Avg, sd,
+    minAll, minLast5, minDelta,
+    paceAdj, matchupAdj, oppData,
+    homeLogs, awayLogs, b2bLogs, restedLogs,
+    filters, settings, kelly, stakeUnits, allLogs,
+    predMean, postMean, useNB,
+  } = ctx;
+
+  const playerName = `${player.first_name} ${player.last_name}`;
+  const statName = STAT_NAMES_PT[stat] || stat;
+  const sideStr = side === 'over' ? 'acima de' : 'abaixo de';
+  const sideStrShort = side === 'over' ? 'OVER' : 'UNDER';
+  const cv = meanFiltered > 0 ? sd / meanFiltered : 0;
+
+  // === PARÁGRAFO 1: O que estamos analisando ===
+  let p1 = `Tu tá considerando apostar <strong>${sideStrShort} ${line} ${STAT_LABELS[stat]}</strong> de <strong>${playerName}</strong> com odd <strong>${fmt(odd, 2)}</strong>. `;
+  p1 += `A casa precificou isso como tendo <strong>${pct(impl, 1)}</strong> de chance de acontecer. `;
+  p1 += `Pra essa aposta valer a pena, a probabilidade real precisa ser maior que ${pct(impl, 1)}. `;
+  p1 += `Quanto maior, melhor.`;
+
+  // === PARÁGRAFO 2: A amostra usada ===
+  const filterDesc = [];
+  if (filters.venue !== 'all') filterDesc.push(filters.venue === 'home' ? 'jogando em casa' : 'jogando fora');
+  if (filters.rest !== 'all') {
+    if (filters.rest === 'b2b') filterDesc.push('em back-to-back');
+    else if (filters.rest === 'rested') filterDesc.push('com 2+ dias de descanso');
+    else if (filters.rest === 'normal') filterDesc.push('com 1 dia de descanso');
+  }
+  if (filters.teammateState !== 'any' && filters.teammateId) {
+    filterDesc.push(filters.teammateState === 'with' ? `com o teammate ID ${filters.teammateId}` : `SEM o teammate ID ${filters.teammateId}`);
+  }
+  const filterStr = filterDesc.length ? ` (filtrando: ${filterDesc.join(', ')})` : '';
+
+  let p2 = `O modelo analisou os últimos <strong>${N} jogos</strong>${filterStr} de ${playerName}. `;
+  p2 += `Nele, ele faz em média <strong>${fmt(meanFiltered, 1)} ${statName}</strong> por jogo (desvio padrão ${fmt(sd, 1)}, CV ${fmt(cv, 2)}`;
+  if (cv > 0.5) p2 += ` — <span class="neg">alta variância, jogador inconsistente</span>`;
+  else if (cv < 0.2) p2 += ` — <span class="pos">baixa variância, jogador consistente</span>`;
+  p2 += `). `;
+  if (N < settings.minSample) {
+    p2 += `<span class="neg">Atenção: amostra pequena (N=${N}, recomendado ${settings.minSample}+) — confiabilidade reduzida.</span> `;
+  }
+
+  // === PARÁGRAFO 3: Forma recente ===
+  let p3 = `<strong>Forma recente:</strong> nos últimos 5 jogos, a média foi <strong>${fmt(last5Avg, 1)}</strong> (`;
+  const formDelta = last5Avg - meanFiltered;
+  const formPct = meanFiltered ? formDelta / meanFiltered : 0;
+  if (Math.abs(formPct) < 0.05) {
+    p3 += `praticamente em linha com a média geral`;
+  } else if (formPct > 0.15) {
+    p3 += `<span class="pos">+${pct(formPct, 0)} vs média — em alta</span>`;
+  } else if (formPct > 0.05) {
+    p3 += `<span class="pos">+${pct(formPct, 0)} vs média — leve alta</span>`;
+  } else if (formPct < -0.15) {
+    p3 += `<span class="neg">${pct(formPct, 0)} vs média — em baixa</span>`;
+  } else {
+    p3 += `<span class="neg">${pct(formPct, 0)} vs média — leve queda</span>`;
+  }
+  p3 += `). `;
+  p3 += `Em minutagem: média geral ${fmt(minAll, 1)} min, últimos 5 jogos ${fmt(minLast5, 1)} min`;
+  if (minDelta < -2) p3 += ` (<span class="neg">queda forte de ${fmt(minDelta, 1)} min, papel reduzido</span>)`;
+  else if (minDelta > 2) p3 += ` (<span class="pos">aumento de ${fmt(minDelta, 1)} min, papel ampliado</span>)`;
+  else p3 += ` (estável)`;
+  p3 += `.`;
+
+  // === PARÁGRAFO 4: Contexto do jogo (matchup) ===
+  let p4 = '';
+  if (oppData) {
+    p4 = `<strong>Contexto do jogo:</strong> `;
+    if (oppData.pace) {
+      const playerPaces = (allLogs || []).filter(g => g._teamPace).map(g => g._teamPace);
+      const playerTeamPace = playerPaces.length ? avg(playerPaces) : 99;
+      const expectedPace = (playerTeamPace + oppData.pace) / 2;
+      p4 += `o adversário joga em pace ${fmt(oppData.pace, 1)} possessions/48min, o time do jogador em ${fmt(playerTeamPace, 1)}. `;
+      p4 += `Pace esperado do confronto: ${fmt(expectedPace, 1)}. `;
+      if (paceAdj > 1.03) p4 += `Isso é <span class="pos">mais rápido</span> que o padrão dele (multiplicador ×${fmt(paceAdj, 2)}, projeção sobe). `;
+      else if (paceAdj < 0.97) p4 += `Isso é <span class="neg">mais lento</span> que o padrão dele (multiplicador ×${fmt(paceAdj, 2)}, projeção cai). `;
+      else p4 += `Pace neutro, sem ajuste relevante. `;
+    }
+    if (oppData.allowed && oppData.allowed[stat] !== undefined) {
+      const allowed = oppData.allowed[stat];
+      p4 += `Defensivamente, esse adversário permite em média <strong>${fmt(allowed, 1)} ${statName}</strong> pra jogadores da posição de ${playerName} (analisado em ${oppData.games} jogos com ${oppData.sample} jogadores similares). `;
+      if (matchupAdj > 0.5) p4 += `Isso é <span class="pos">acima do que ${player.first_name} costuma fazer (${fmt(meanAll, 1)})</span> — matchup favorável, ajuste +${fmt(matchupAdj, 1)} aplicado. `;
+      else if (matchupAdj < -0.5) p4 += `Isso é <span class="neg">abaixo do que ${player.first_name} costuma fazer (${fmt(meanAll, 1)})</span> — matchup difícil, ajuste ${fmt(matchupAdj, 1)} aplicado. `;
+      else p4 += `Em linha com o padrão dele, sem ajuste relevante. `;
+    }
+  }
+
+  // === PARÁGRAFO 5: Splits relevantes ===
+  let p5 = '';
+  const splits = [];
+  if (homeLogs.length >= 5 && awayLogs.length >= 5) {
+    const hAvg = avg(homeLogs.map(g => computeStat(g, stat)));
+    const aAvg = avg(awayLogs.map(g => computeStat(g, stat)));
+    const homeAdv = (hAvg - aAvg) / aAvg;
+    if (Math.abs(homeAdv) > 0.10) {
+      splits.push(`em casa faz ${fmt(hAvg, 1)} vs fora ${fmt(aAvg, 1)} (${homeAdv > 0 ? '+' : ''}${pct(homeAdv, 0)} de diferença, split <strong>${homeAdv > 0 ? 'forte em casa' : 'forte fora'}</strong>)`);
+    }
+  }
+  if (b2bLogs.length >= 3) {
+    const bAvg = avg(b2bLogs.map(g => computeStat(g, stat)));
+    const bDelta = (bAvg - meanAll) / meanAll;
+    if (Math.abs(bDelta) > 0.10) {
+      splits.push(`em B2B faz ${fmt(bAvg, 1)} (${bDelta > 0 ? '+' : ''}${pct(bDelta, 0)} vs média geral)`);
+    }
+  }
+  if (restedLogs.length >= 5) {
+    const rAvg = avg(restedLogs.map(g => computeStat(g, stat)));
+    const rDelta = (rAvg - meanAll) / meanAll;
+    if (Math.abs(rDelta) > 0.10) {
+      splits.push(`com 2+ dias de descanso faz ${fmt(rAvg, 1)} (${rDelta > 0 ? '+' : ''}${pct(rDelta, 0)} vs média)`);
+    }
+  }
+  if (splits.length) {
+    p5 = `<strong>Padrões importantes nos splits:</strong> ${splits.join('; ')}. `;
+  }
+
+  // === PARÁGRAFO 6: Os 3 modelos ===
+  const modelSpread = Math.max(empProb, poisProb, bayesProb) - Math.min(empProb, poisProb, bayesProb);
+  let p6 = `<strong>Os 3 modelos rodaram em paralelo:</strong>`;
+  p6 += `<ul>`;
+  p6 += `<li><strong>Empirical (${pct(empProb, 1)}):</strong> ${pct(empProb, 0)} de hit rate ponderado nos jogos analisados.</li>`;
+  p6 += `<li><strong>${useNB ? 'NegBinomial' : 'Poisson'} (${pct(poisProb, 1)}):</strong> distribuição estatística com média projetada ${fmt(predMean, 1)}${oppData ? ' (já com ajustes de pace e matchup)' : ''}.</li>`;
+  p6 += `<li><strong>Bayesian (${pct(bayesProb, 1)}):</strong> média regredida para a histórica (${fmt(meanAll, 1)}) com prior weight ${settings.bayesPrior}, posterior μ=${fmt(postMean, 1)}.</li>`;
+  p6 += `</ul>`;
+  p6 += `<strong>Probabilidade final blendada: ${pct(finalProb, 1)}.</strong> `;
+  if (modelSpread < 0.04) {
+    p6 += `<span class="pos">Os 3 modelos concordam fortemente (spread ${pct(modelSpread, 1)}) — alta confiança.</span>`;
+  } else if (modelSpread > 0.10) {
+    p6 += `<span class="neg">Os 3 modelos discordam (spread ${pct(modelSpread, 1)}) — confiança reduzida, sinal fraco.</span>`;
+  } else {
+    p6 += `Modelos concordam razoavelmente (spread ${pct(modelSpread, 1)}).`;
+  }
+
+  // === PARÁGRAFO 7: Conclusão ===
+  let p7 = `<strong>Veredito:</strong> `;
+  const tBet = settings.thrBet / 100;
+  const tLean = settings.thrLean / 100;
+  if (edge >= tBet) {
+    p7 += `o modelo dá <strong>${pct(finalProb, 1)}</strong> de probabilidade real vs <strong>${pct(impl, 1)}</strong> implícito da casa = `;
+    p7 += `<strong class="pos">edge de +${pct(edge, 1)}</strong>, EV +${pct(ev, 2)} por unidade. `;
+    p7 += `Acima do threshold mínimo de ${settings.thrBet}% pra recomendar bet. `;
+    p7 += `Kelly Criterion sugere stake de <strong>${fmt(stakeUnits, 2)} unidades</strong> (${pct(kelly, 2)} da banca). `;
+    p7 += `<span class="pos">RECOMENDA: APOSTAR ${sideStrShort} ${line}.</span>`;
+  } else if (edge >= tLean) {
+    p7 += `o modelo dá ${pct(finalProb, 1)} vs ${pct(impl, 1)} implícito = edge de +${pct(edge, 1)}. `;
+    p7 += `Marginal — abaixo do threshold de ${settings.thrBet}% pra bet forte, mas levemente positivo. `;
+    p7 += `<span style="color:var(--yellow);">RECOMENDA: LEAN ${sideStrShort} (stake reduzido ou pula).</span>`;
+  } else if (edge >= -tLean) {
+    p7 += `o modelo dá ${pct(finalProb, 1)} vs ${pct(impl, 1)} implícito = sem edge significativo. `;
+    p7 += `<span class="neg">RECOMENDA: PASS. Não tem valor mensurável aqui.</span>`;
+  } else if (edge >= -tBet) {
+    p7 += `o modelo dá apenas ${pct(finalProb, 1)} vs ${pct(impl, 1)} implícito. `;
+    p7 += `O OUTRO lado tem edge de +${pct(-edge, 1)}, mas marginal. `;
+    p7 += `<span style="color:var(--yellow);">RECOMENDA: considere LEAN no lado oposto, ou pule.</span>`;
+  } else {
+    p7 += `o modelo dá apenas ${pct(finalProb, 1)} vs ${pct(impl, 1)} implícito. `;
+    p7 += `<strong class="neg">O OUTRO lado tem edge de +${pct(-edge, 1)}</strong>. `;
+    p7 += `<span class="neg">RECOMENDA: FADE — apostar ${side === 'over' ? 'UNDER' : 'OVER'} ${line} é o lado correto.</span>`;
+  }
+
+  // Build final HTML
+  return `
+    <div class="reasoning-box">
+      <div class="head">▸ Por que essa recomendação? · Raciocínio completo</div>
+      <p>${p1}</p>
+      <p>${p2}</p>
+      <p>${p3}</p>
+      ${p4 ? `<p>${p4}</p>` : ''}
+      ${p5 ? `<p>${p5}</p>` : ''}
+      <p>${p6}</p>
+      <p>${p7}</p>
+    </div>
+  `;
+}
+
+// === REASONING NARRATIVE GENERATOR === (END)
+
+function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppData }) {
+  const logs = STATE.filteredLogs;
+  const N = logs.length;
+  const values = logs.map(g => computeStat(g, stat));
+  const minutes = logs.map(g => computeStat(g, 'min'));
+  const allValues = allLogs.map(g => computeStat(g, stat));
+  const meanFiltered = avg(values);
+  const varFiltered = Math.pow(stdev(values), 2);
+  const meanAll = avg(allValues);
+
+  // Model 1: Empirical
+  const wRecent = STATE.settings.weightRecent;
+  const wMid = 1 + (wRecent - 1) * 0.4;
+  let wSum = 0, wHit = 0;
+  values.forEach((v, i) => {
+    const h = side === 'over' ? v > line : v < line;
+    let w = 1.0;
+    if (i < 5) w = wRecent;
+    else if (i < 10) w = wMid;
+    wSum += w;
+    if (h) wHit += w;
+  });
+  const empProb = wHit / wSum;
+
+  // Model 2: Distribution
+  let predMean = avg(values.slice(0, Math.min(15, N)));
+  let paceAdj = 1.0;
+  if (oppData && oppData.pace) {
+    const playerPaces = logs.filter(g => g._teamPace).map(g => g._teamPace);
+    const playerTeamPace = playerPaces.length ? avg(playerPaces) : 99;
+    const expectedPace = (playerTeamPace + oppData.pace) / 2;
+    paceAdj = expectedPace / playerTeamPace;
+    predMean = predMean * paceAdj;
+  }
+  let matchupAdj = 0;
+  if (oppData && oppData.allowed && ['pts','reb','ast','fg3m','stl','blk'].includes(stat)) {
+    const allowed = oppData.allowed[stat];
+    if (allowed > 0 && meanAll > 0) {
+      matchupAdj = (allowed - meanAll) * 0.4;
+      predMean += matchupAdj;
+    }
+  }
+  predMean = Math.max(0.1, predMean);
+  const useNB = varFiltered > predMean * 1.05;
+  const poisProb = side === 'over' ? probOver(line, predMean, varFiltered, useNB) : probUnder(line, predMean, varFiltered, useNB);
+
+  // Model 3: Bayesian
+  const priorMean = meanAll;
+  const priorWeight = STATE.settings.bayesPrior;
+  const postMean = (priorMean * priorWeight + meanFiltered * N) / (priorWeight + N);
+  const bayesProb = side === 'over' ? probOver(line, postMean, varFiltered, useNB) : probUnder(line, postMean, varFiltered, useNB);
+
+  // Blend
+  let weights;
+  switch (STATE.settings.modelBlend) {
+    case 'empirical': weights = [0.6, 0.2, 0.2]; break;
+    case 'poisson':   weights = [0.2, 0.6, 0.2]; break;
+    case 'bayes':     weights = [0.2, 0.2, 0.6]; break;
+    default:          weights = [0.34, 0.33, 0.33];
+  }
+  const finalProb = weights[0]*empProb + weights[1]*poisProb + weights[2]*bayesProb;
+  const impl = impliedProb(odd);
+  const ev = evPct(finalProb, odd);
+  const edge = finalProb - impl;
+  const k = kelly(finalProb, odd);
+  const kFrac = k * STATE.settings.kellyFrac;
+  const stakeUnits = kFrac * STATE.settings.bankroll;
+
+  // Decision
+  const tBet = STATE.settings.thrBet / 100;
+  const tLean = STATE.settings.thrLean / 100;
+  let decision = 'pass', decClass = 'pass', decisionMsg = '';
+  if (edge >= tBet) {
+    decision = `bet ${side}`;
+    decClass = side === 'over' ? 'over' : 'under';
+    decisionMsg = `Edge ${pct(edge)} (model ${pct(finalProb)} vs implied ${pct(impl)}). EV +${pct(ev,2)} per unit. Above ${STATE.settings.thrBet}% threshold. Kelly stake: ${fmt(stakeUnits,2)} units (${pct(kFrac)} of bankroll).`;
+  } else if (edge >= tLean) {
+    decision = `lean ${side}`;
+    decisionMsg = `Marginal edge ${pct(edge)}. EV ${(ev>=0?'+':'')}${pct(ev,2)}. Below BET threshold.`;
+  } else if (edge >= -tLean) {
+    decision = 'pass';
+    decisionMsg = `Model ${pct(finalProb)} vs implied ${pct(impl)} = no edge. Pass.`;
+  } else if (edge >= -tBet) {
+    decision = 'lean other side';
+    decisionMsg = `Model gives ${pct(finalProb)}. Other side has +${pct(-edge)} edge. Marginal.`;
+  } else {
+    decision = `fade — bet ${side==='over'?'under':'over'}`;
+    decClass = side === 'over' ? 'under' : 'over';
+    decisionMsg = `Model only ${pct(finalProb)} vs implied ${pct(impl)}. Other side has +${pct(-edge)} edge.`;
+  }
+
+  // Signals
+  const signals = [];
+  if (N < STATE.settings.minSample) signals.push({ type:'warn', txt:`Small sample (N=${N}, recommend ${STATE.settings.minSample}+)` });
+  const last5Min = avg(minutes.slice(0, Math.min(5, N)));
+  const allMin = avg(minutes);
+  const minDelta = last5Min - allMin;
+  if (minDelta < -2) signals.push({ type:'bad', txt:`MIN ↓ ${fmt(minDelta,1)} L5 — role shrinking` });
+  else if (minDelta < -1) signals.push({ type:'warn', txt:`MIN ↓ ${fmt(minDelta,1)} L5` });
+  else if (minDelta > 2) signals.push({ type:'good', txt:`MIN ↑ +${fmt(minDelta,1)} L5` });
+  const last5Avg = avg(values.slice(0, Math.min(5, N)));
+  if (last5Avg && meanFiltered) {
+    const fd = (last5Avg - meanFiltered) / meanFiltered;
+    if (fd < -0.15) signals.push({ type:'bad', txt:`${STAT_LABELS[stat]} ↓ ${pct(fd,0)} L5 — cold` });
+    else if (fd > 0.15) signals.push({ type:'good', txt:`${STAT_LABELS[stat]} ↑ +${pct(fd,0)} L5 — hot` });
+  }
+  if (Math.abs(matchupAdj) > 0.5) signals.push({ type: matchupAdj > 0 ? 'good' : 'bad', txt:`Matchup ${matchupAdj > 0 ? 'soft' : 'tough'} (Δ${fmt(matchupAdj,1)})` });
+  if (paceAdj < 0.97) signals.push({ type:'bad', txt:`Pace ×${fmt(paceAdj,2)} (slower)` });
+  else if (paceAdj > 1.03) signals.push({ type:'good', txt:`Pace ×${fmt(paceAdj,2)} (faster)` });
+  if (filters.advUsage) {
+    const usgValues = logs.filter(g => g._usgReal !== null).map(g => g._usgReal);
+    const usgL5 = logs.slice(0, Math.min(5,N)).filter(g => g._usgReal !== null).map(g => g._usgReal);
+    if (usgValues.length > 0 && usgL5.length > 0) {
+      const usgAll = avg(usgValues);
+      const usgRecent = avg(usgL5);
+      const usgDelta = usgRecent - usgAll;
+      if (usgDelta < -2) signals.push({ type:'bad', txt:`USG% ↓ ${fmt(usgDelta,1)} L5 (${fmt(usgRecent,1)}%)` });
+      else if (usgDelta > 2) signals.push({ type:'good', txt:`USG% ↑ +${fmt(usgDelta,1)} L5 (${fmt(usgRecent,1)}%)` });
+    }
+  }
+  const modelSpread = Math.max(empProb, poisProb, bayesProb) - Math.min(empProb, poisProb, bayesProb);
+  if (modelSpread > 0.10) signals.push({ type:'warn', txt:`Models disagree (${pct(modelSpread)})` });
+  else if (modelSpread < 0.04) signals.push({ type:'good', txt:`Models agree (${pct(modelSpread)})` });
+
+  const homeLogs = allLogs.filter(g => g._venue === 'home');
+  const awayLogs = allLogs.filter(g => g._venue === 'away');
+  const b2bLogs = allLogs.filter(g => g._restDays === 0);
+  const restedLogs = allLogs.filter(g => g._restDays >= 2);
+  const splitStat = (lgs) => {
+    if (!lgs.length) return null;
+    const v = lgs.map(g => computeStat(g, stat));
+    const h = v.filter(x => side==='over' ? x > line : x < line).length;
+    return { n: lgs.length, avg: avg(v), hit: h/lgs.length };
+  };
+  STATE.lastAnalysis = {
+    player: STATE.player, stat, side, line, odd,
+    finalProb, empProb, poisProb, bayesProb, impl, edge, ev, decision,
+    seasons, filters, N, kelly: kFrac, stakeUnits, predMean, postMean
+  };
+  const vCls = v => v > 0.05 ? 'v-good' : v < -0.05 ? 'v-bad' : 'v-neutral';
+  const hits = values.map(v => side === 'over' ? v > line : v < line);
+  const overallRate = hits.filter(Boolean).length / N;
+
+  const html = `
+    <div class="verdict">
+      <div class="verdict-cell">
+        <div class="lbl">Final Model Probability ${tip('modelProb')}</div>
+        <div class="val">${pct(finalProb,1)}</div>
+        <div class="sub">blend: ${STATE.settings.modelBlend} · N=${N} ${tip('sample')}</div>
+      </div>
+      <div class="verdict-cell">
+        <div class="lbl">Implied (Odd ${fmt(odd,2)}) ${tip('implied')}</div>
+        <div class="val">${pct(impl,1)}</div>
+        <div class="sub">1 / decimal odd</div>
+      </div>
+      <div class="verdict-cell">
+        <div class="lbl">Edge & EV ${tip('edge')}</div>
+        <div class="val ${vCls(edge)}">${edge>=0?'+':''}${pct(edge,1)}</div>
+        <div class="sub ${vCls(ev)}">EV ${ev>=0?'+':''}${pct(ev,2)}/unit ${tip('ev')}</div>
+      </div>
+    </div>
+    <div class="recommendation bet-${decClass}">
+      <div class="head">[Verdict] ${decision.toUpperCase()} ${decision.startsWith('bet')||decision.startsWith('lean ')?line:''}</div>
+      <div class="body">${decisionMsg}</div>
+      <div class="kelly-box">
+        <div class="k-cell"><div class="lbl">Full Kelly ${tip('kelly')}</div><div class="v">${pct(k,2)}</div></div>
+        <div class="k-cell"><div class="lbl">${pct(STATE.settings.kellyFrac)} Kelly</div><div class="v">${pct(kFrac,2)}</div></div>
+        <div class="k-cell"><div class="lbl">Stake</div><div class="v">${fmt(stakeUnits,2)} u</div></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="log-bet-btn">Log this bet</button>
+        <button class="ghost" id="log-skip-btn">Log as skipped</button>
+      </div>
+    </div>
+    ${generateReasoning({
+      player: STATE.player, stat, side, line, odd, N,
+      finalProb, empProb, poisProb, bayesProb,
+      impl, edge, ev, decision,
+      meanFiltered, meanAll, last5Avg, sd: stdev(values),
+      minAll: allMin, minLast5: last5Min, minDelta,
+      paceAdj, matchupAdj, oppData,
+      homeLogs, awayLogs, b2bLogs, restedLogs,
+      filters, settings: STATE.settings, kelly: k, stakeUnits, allLogs,
+      predMean, postMean, useNB,
+    })}
+    <details>
+      <summary>▸ Model Breakdown · 3 estimators ${tip('edge_blend')}</summary>
+      <div class="details-body">
+        <div class="models-grid">
+          <div class="model-cell"><div class="lbl">Empirical Hit-Rate ${tip('empirical')}</div><div class="v">${pct(empProb,1)}</div><div class="sub">weighted L5×${wRecent}</div></div>
+          <div class="model-cell"><div class="lbl">${useNB?'NegBinomial':'Poisson'} ${tip(useNB?'negbinom':'poisson')}</div><div class="v">${pct(poisProb,1)}</div><div class="sub">μ=${fmt(predMean,1)} σ²=${fmt(varFiltered,1)}${oppData?' · adj':''}</div></div>
+          <div class="model-cell"><div class="lbl">Bayesian ${tip('bayesian')}</div><div class="v">${pct(bayesProb,1)}</div><div class="sub">posterior μ=${fmt(postMean,1)}</div></div>
+        </div>
+      </div>
+    </details>
+    <div class="metrics-grid" style="margin-top:14px;">
+      <div class="metric"><div class="lbl">Avg ${STAT_LABELS[stat]}</div><div class="val">${fmt(meanFiltered,1)}</div><div class="delta">σ=${fmt(stdev(values),1)} ${tip('cv')}</div></div>
+      <div class="metric"><div class="lbl">Last 5</div><div class="val">${fmt(last5Avg,1)}</div><div class="delta ${last5Avg>=meanFiltered?'up':'down'}">${last5Avg>=meanFiltered?'+':''}${fmt(last5Avg-meanFiltered,1)}</div></div>
+      <div class="metric"><div class="lbl">Hit Rate ${tip('hitRate')}</div><div class="val">${pct(overallRate,0)}</div><div class="delta">${hits.filter(Boolean).length}/${N}</div></div>
+      <div class="metric"><div class="lbl">MIN / L5</div><div class="val">${fmt(allMin,1)} / ${fmt(last5Min,1)}</div><div class="delta ${minDelta>=0?'up':'down'}">${minDelta>=0?'+':''}${fmt(minDelta,1)}</div></div>
+      ${oppData && oppData.pace ? `<div class="metric"><div class="lbl">Opp Pace ${tip('pace')}</div><div class="val">${fmt(oppData.pace,1)}</div><div class="delta">×${fmt(paceAdj,2)} ${tip('paceAdj')}</div></div>` : ''}
+      ${oppData && oppData.allowed && oppData.allowed[stat] !== undefined ? `<div class="metric"><div class="lbl">Opp Allows ${STAT_LABELS[stat]} ${tip('matchup')}</div><div class="val">${fmt(oppData.allowed[stat],1)}</div><div class="delta">${matchupAdj>=0?'+':''}${fmt(matchupAdj,1)}</div></div>` : ''}
+      ${filters.advUsage ? (() => { const u = logs.filter(g => g._usgReal !== null).map(g => g._usgReal); if (!u.length) return ''; return `<div class="metric"><div class="lbl">Real USG% ${tip('usage')}</div><div class="val">${fmt(avg(u),1)}%</div></div>`; })() : ''}
+      <div class="metric"><div class="lbl">Distance from Line</div><div class="val">${(meanFiltered-line)/line>=0?'+':''}${pct((meanFiltered-line)/line,1)}</div></div>
+    </div>
+    <div class="splits-grid">
+      ${[['Home', homeLogs], ['Away', awayLogs], ['B2B', b2bLogs], ['Rested 2+', restedLogs]].map(([name, lgs]) => {
+        const s = splitStat(lgs);
+        return `<div class="split-cell"><div class="lbl">${name} (${lgs.length})</div><div class="stats">${s ? `<div class="stat-item"><div class="v">${fmt(s.avg,1)}</div><div class="k">avg</div></div><div class="stat-item"><div class="v">${pct(s.hit,0)}</div><div class="k">hit ${side}</div></div>` : '<div class="stat-item"><div class="v">–</div><div class="k">no data</div></div>'}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="signals">${signals.length ? signals.map(s => `<span class="signal ${s.type}">${s.txt}</span>`).join('') : '<span class="signal">no notable signals</span>'}</div>
+    <div style="margin-top:18px;">
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--ink-dim); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:6px;">
+        <span>Game-by-Game · ${STAT_LABELS[stat]} · Filtered (${N})</span><span>green=${side} hit</span>
+      </div>
+      <div class="spark-row">
+        ${values.map((v,i) => {
+          const hit = side==='over' ? v > line : v < line;
+          const maxV = Math.max(line*1.5, ...values);
+          const h = Math.max(2, (v / maxV) * 100);
+          const date = logs[i].game.date.slice(5);
+          const venue = logs[i]._venue === 'home' ? '@H' : '@A';
+          const rest = logs[i]._restDays === 0 ? ' B2B' : '';
+          return `<div class="spark-bar ${hit?'hit':'miss'}" style="height:${h}%" data-tip="${date} ${venue}${rest} · ${v}"></div>`;
+        }).join('')}
+      </div>
+    </div>
+    <details style="margin-top:14px;">
+      <summary>▸ Game Log Detail (${N})</summary>
+      <div class="details-body" style="padding:0;">
+        <div style="max-height:340px; overflow-y:auto;">
+          <table>
+            <thead><tr><th>Date</th><th>V</th><th>Rest</th><th>MIN</th><th>${STAT_LABELS[stat]}</th><th>PTS</th><th>REB</th><th>AST</th><th>FG%</th><th>USG${filters.advUsage?'':'*'}</th><th>Hit</th></tr></thead>
+            <tbody>
+              ${logs.map((g,i) => {
+                const v = values[i];
+                const hit = side==='over' ? v > line : v < line;
+                const fgp = g.fga > 0 ? (g.fgm/g.fga) : null;
+                const m = computeStat(g,'min');
+                let usgDisplay;
+                if (filters.advUsage && g._usgReal !== null && g._usgReal !== undefined) usgDisplay = fmt(g._usgReal, 1);
+                else { const proxy = m > 0 ? ((g.fga||0) + 0.44*(g.fta||0) + (g.turnover||0)) / m * 100 : 0; usgDisplay = fmt(proxy, 1); }
+                return `<tr class="${hit?'hit':'miss'}"><td>${g.game.date.slice(5)}</td><td>${g._venue==='home'?'H':g._venue==='away'?'A':'?'}</td><td class="${g._restDays===0?'b2b':''}">${g._restDays===null?'?':g._restDays+'d'}</td><td>${fmt(m,1)}</td><td class="target">${v}</td><td>${g.pts||0}</td><td>${g.reb||0}</td><td>${g.ast||0}</td><td>${fgp!==null?pct(fgp,0):'–'}</td><td>${usgDisplay}</td><td>${hit?'✓':'✗'}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+    <div style="margin-top:14px; font-size:10px; color:var(--ink-faint); letter-spacing:0.06em; line-height:1.6;">
+      ${filters.advUsage ? 'USG% = real (computed from team logs)' : 'USG = proxy. Toggle "Compute REAL usage" for true value'} ·
+      Edge: BET ≥${STATE.settings.thrBet}% · LEAN ${STATE.settings.thrLean}-${STATE.settings.thrBet}% ·
+      SE ≈ ${pct(Math.sqrt(finalProb*(1-finalProb)/N),1)} ·
+      ${oppData ? `Opp matchup: ${oppData.games}g, ${oppData.sample} similar-position players` : 'No opponent matchup'}
+    </div>
+  `;
+  $('#results-body').innerHTML = html;
+  $('#log-bet-btn').addEventListener('click', () => logBet('bet'));
+  $('#log-skip-btn').addEventListener('click', () => logBet('skipped'));
+}
+
+// === INJURIES ===
+async function refreshInjuries() {
+  $('#injuries-meta').innerHTML = '<span class="loader"></span>fetching';
+  try {
+    const data = await bdlFetch('/player_injuries', { per_page: 100 }, false);
+    STATE.injuries = data.data || [];
+    renderInjuries();
+    $('#injuries-meta').textContent = `${STATE.injuries.length} listed · ${new Date().toLocaleTimeString()}`;
+  } catch(e) { $('#injuries-meta').textContent = 'err: ' + e.message; }
+}
+function renderInjuries() {
+  if (!STATE.injuries) return;
+  const teamFilter = $('#injury-team-filter').value;
+  const statusFilter = $('#injury-status-filter').value;
+  let list = STATE.injuries.slice();
+  if (teamFilter) list = list.filter(i => i.player && i.player.team_id === Number(teamFilter));
+  if (statusFilter) list = list.filter(i => i.status === statusFilter);
+  list.sort((a,b) => {
+    const order = {'Out':0, 'Doubtful':1, 'Questionable':2, 'Day-To-Day':3, 'Probable':4};
+    return (order[a.status] !== undefined ? order[a.status] : 5) - (order[b.status] !== undefined ? order[b.status] : 5);
+  });
+  if (!list.length) { $('#injuries-list').innerHTML = '<div class="empty-state">No injuries match filter</div>'; return; }
+  const html = list.map(i => {
+    if (!i.player) return '';
+    const teamAbbr = STATE.teams ? (STATE.teams.find(t => t.id === i.player.team_id) || {}).abbreviation || '?' : '?';
+    const statusClass = (i.status||'').toLowerCase().replace(/[\s-]/g, '-');
+    return `<div class="injury-row">
+      <div>
+        <div class="injury-name">${i.player.first_name} ${i.player.last_name} · <span class="injury-team">${teamAbbr}</span></div>
+        <div style="font-size:10px; color:var(--ink-faint); margin-top:2px;">${i.description || i.return_date || ''}</div>
+      </div>
+      <span class="injury-status ${statusClass}">${i.status||'?'}</span>
+    </div>`;
+  }).join('');
+  $('#injuries-list').innerHTML = html;
+}
+$('#refresh-injuries').addEventListener('click', refreshInjuries);
+$('#injury-team-filter').addEventListener('change', renderInjuries);
+$('#injury-status-filter').addEventListener('change', renderInjuries);
+
+// === TRACKER ===
+function logBet(action) {
+  if (!STATE.lastAnalysis) return;
+  const a = STATE.lastAnalysis;
+  let stake = 0;
+  if (action === 'bet') {
+    const inp = prompt(`Stake (units). Suggested by Kelly: ${fmt(a.stakeUnits,2)}`, fmt(a.stakeUnits, 2));
+    stake = parseFloat(inp);
+    if (isNaN(stake) || stake <= 0) return;
+  }
+  const closingOddStr = action === 'bet' ? prompt('Closing odd (CLV, blank if unknown):', '') : '';
+  const closingOdd = closingOddStr ? parseFloat(closingOddStr) : null;
+  const bet = {
+    id: 'bet_' + Date.now(), timestamp: new Date().toISOString(), action,
+    player: `${a.player.first_name} ${a.player.last_name}`, playerId: a.player.id,
+    stat: a.stat, side: a.side, line: a.line, odd: a.odd,
+    closingOdd, stake, modelProb: a.finalProb, impliedProb: a.impl,
+    edge: a.edge, ev: a.ev, decision: a.decision, N: a.N, kelly: a.kelly,
+    status: 'pending',
+  };
+  STATE.bets.push(bet);
+  saveBets();
+  alert(action === 'bet' ? 'Logged.' : 'Skip logged.');
+  renderTrackerBadge();
+}
+function saveBets() {
+  localStorage.setItem('bdl_bets', JSON.stringify(STATE.bets));
+  if (typeof markDirty === 'function') markDirty();
+}
+function renderTrackerBadge() {
+  const pending = STATE.bets.filter(b => b.action==='bet' && b.status==='pending').length;
+  $('#tracker-badge').textContent = pending || STATE.bets.filter(b=>b.action==='bet').length;
+}
+renderTrackerBadge();
+function renderTracker() {
+  const bets = STATE.bets.filter(b => b.action === 'bet');
+  const settled = bets.filter(b => b.status === 'win' || b.status === 'loss');
+  const pending = bets.filter(b => b.status === 'pending');
+  let totalStaked=0, totalReturn=0, wins=0, losses=0, totalCLV=0, clvCount=0;
+  for (const b of settled) {
+    totalStaked += b.stake;
+    if (b.status === 'win') { wins++; totalReturn += b.stake * b.odd; } else losses++;
+    if (b.closingOdd) {
+      const myImpl = 1/b.odd, closeImpl = 1/b.closingOdd;
+      totalCLV += (closeImpl - myImpl) / myImpl;
+      clvCount++;
+    }
+  }
+  const profit = totalReturn - totalStaked;
+  const roi = totalStaked > 0 ? profit / totalStaked : 0;
+  const winRate = settled.length > 0 ? wins / settled.length : 0;
+  const avgCLV = clvCount > 0 ? totalCLV / clvCount : null;
+  $('#tracker-summary').innerHTML = `
+    <div class="tracker-cell"><div class="lbl">Total Bets</div><div class="val">${bets.length}</div><div class="sub">${settled.length} settled · ${pending.length} pending</div></div>
+    <div class="tracker-cell"><div class="lbl">Win Rate</div><div class="val ${winRate>=0.55?'v-good':winRate>=0.50?'v-neutral':'v-bad'}">${pct(winRate,1)}</div><div class="sub">${wins}W · ${losses}L</div></div>
+    <div class="tracker-cell"><div class="lbl">Profit</div><div class="val ${profit>0?'v-good':profit<0?'v-bad':'v-neutral'}">${profit>=0?'+':''}${fmt(profit,2)}</div><div class="sub">${fmt(totalStaked,1)} staked</div></div>
+    <div class="tracker-cell"><div class="lbl">ROI</div><div class="val ${roi>0?'v-good':roi<0?'v-bad':'v-neutral'}">${roi>=0?'+':''}${pct(roi,1)}</div></div>
+    <div class="tracker-cell"><div class="lbl">Avg CLV ${tip('clv')}</div><div class="val ${avgCLV>0?'v-good':avgCLV<0?'v-bad':'v-neutral'}">${avgCLV!==null?(avgCLV>=0?'+':'')+pct(avgCLV,1):'–'}</div><div class="sub">${clvCount} w/ CLV</div></div>
+  `;
+  if (!bets.length) { $('#bets-table-wrap').innerHTML = `<div class="empty-state">No bets logged.</div>`; return; }
+  const sorted = [...bets].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const rows = sorted.map(b => {
+    const date = b.timestamp.slice(0,10);
+    const propText = `${b.player} ${b.side.toUpperCase()} ${b.line} ${STAT_LABELS[b.stat]||b.stat}`;
+    const statusClass = b.status === 'win' ? 'win' : b.status === 'loss' ? 'loss' : b.status === 'void' ? 'void' : 'pending';
+    const profit = b.status === 'win' ? (b.stake * (b.odd - 1)) : b.status === 'loss' ? -b.stake : 0;
+    return `<tr class="bet-row">
+      <td>${date}</td><td>${propText}</td><td>${fmt(b.odd,2)}</td>
+      <td>${pct(b.modelProb,1)}</td><td>${(b.edge>=0?'+':'')}${pct(b.edge,1)}</td>
+      <td>${fmt(b.stake,2)}</td><td class="${statusClass}">${b.status}</td>
+      <td class="${profit>0?'win':profit<0?'loss':'void'}">${profit>=0?'+':''}${fmt(profit,2)}</td>
+      <td>${b.status==='pending' ? `
+        <button class="ghost" data-bet-win="${b.id}" style="width:auto;padding:3px 8px;font-size:10px;">W</button>
+        <button class="ghost" data-bet-loss="${b.id}" style="width:auto;padding:3px 8px;font-size:10px;">L</button>
+        <button class="ghost" data-bet-void="${b.id}" style="width:auto;padding:3px 8px;font-size:10px;">V</button>
+      ` : `<button class="ghost" data-bet-reset="${b.id}" style="width:auto;padding:3px 8px;font-size:10px;">↺</button>`}
+      <button class="danger" data-bet-del="${b.id}" style="width:auto;padding:3px 8px;font-size:10px;">×</button></td>
+    </tr>`;
+  }).join('');
+  $('#bets-table-wrap').innerHTML = `
+    <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--line);">
+      <table><thead><tr><th>Date</th><th>Bet</th><th>Odd</th><th>Model</th><th>Edge</th><th>Stake</th><th>Status</th><th>P/L</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  `;
+  $$('[data-bet-win]').forEach(b => b.addEventListener('click', e => updateBet(e.target.dataset.betWin, 'win')));
+  $$('[data-bet-loss]').forEach(b => b.addEventListener('click', e => updateBet(e.target.dataset.betLoss, 'loss')));
+  $$('[data-bet-void]').forEach(b => b.addEventListener('click', e => updateBet(e.target.dataset.betVoid, 'void')));
+  $$('[data-bet-reset]').forEach(b => b.addEventListener('click', e => updateBet(e.target.dataset.betReset, 'pending')));
+  $$('[data-bet-del]').forEach(b => b.addEventListener('click', e => deleteBet(e.target.dataset.betDel)));
+}
+function updateBet(id, status) {
+  const b = STATE.bets.find(x => x.id === id);
+  if (!b) return;
+  b.status = status;
+  saveBets(); renderTracker(); renderTrackerBadge();
+}
+function deleteBet(id) {
+  if (!confirm('Delete?')) return;
+  STATE.bets = STATE.bets.filter(x => x.id !== id);
+  saveBets(); renderTracker(); renderTrackerBadge();
+}
+$('#export-bets').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(STATE.bets, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'prop_terminal_bets_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+});
+$('#clear-bets').addEventListener('click', () => {
+  if (!confirm('Delete ALL bets?')) return;
+  STATE.bets = []; saveBets(); renderTracker(); renderTrackerBadge();
+});
+
+// === SETTINGS ===
+function loadSettingsToUI() {
+  $('#thr-bet').value = STATE.settings.thrBet;
+  $('#thr-lean').value = STATE.settings.thrLean;
+  $('#weight-recent').value = STATE.settings.weightRecent;
+  $('#min-sample').value = STATE.settings.minSample;
+  $('#bankroll').value = STATE.settings.bankroll;
+  $('#kelly-frac').value = STATE.settings.kellyFrac;
+  $('#bayes-prior').value = STATE.settings.bayesPrior;
+  $('#model-blend').value = STATE.settings.modelBlend;
+}
+loadSettingsToUI();
+$('#save-settings').addEventListener('click', () => {
+  STATE.settings = {
+    thrBet: Number($('#thr-bet').value) || 5,
+    thrLean: Number($('#thr-lean').value) || 2,
+    weightRecent: Number($('#weight-recent').value) || 1.5,
+    minSample: Number($('#min-sample').value) || 15,
+    bankroll: Number($('#bankroll').value) || 100,
+    kellyFrac: Math.min(1, Math.max(0, Number($('#kelly-frac').value) || 0.25)),
+    bayesPrior: Number($('#bayes-prior').value) || 30,
+    modelBlend: $('#model-blend').value,
+  };
+  localStorage.setItem('bdl_settings', JSON.stringify(STATE.settings));
+  alert('Saved.');
+});
+$('#reset-settings').addEventListener('click', () => {
+  STATE.settings = { thrBet: 5, thrLean: 2, weightRecent: 1.5, minSample: 15, bankroll: 100, kellyFrac: 0.25, bayesPrior: 30, modelBlend: 'balanced' };
+  localStorage.setItem('bdl_settings', JSON.stringify(STATE.settings));
+  loadSettingsToUI();
+});
+function renderCacheInfo() {
+  const keys = Object.keys(STATE.cache);
+  const sizeKB = (JSON.stringify(STATE.cache).length / 1024).toFixed(1);
+  $('#cache-info').textContent = `${keys.length} cached · ${sizeKB} KB`;
+}
+$('#clear-cache').addEventListener('click', () => {
+  STATE.cache = {};
+  localStorage.removeItem('bdl_cache');
+  renderCacheInfo();
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#player-search') && !e.target.closest('#search-results')) {
+    $('#search-results').classList.add('hidden');
+  }
+});
+
+// ============================================================
+// === PORTABLE PROFILE SYSTEM (v4) ============================
+// ============================================================
+
+function generateProfileId() {
+  const ts = Date.now().toString(36);
+  const rnd = Math.random().toString(36).slice(2, 8);
+  return `P-${ts}-${rnd}`.toUpperCase();
+}
+
+function detectDevice() {
+  const ua = navigator.userAgent;
+  let device = 'Desktop';
+  if (/Mobi|Android/i.test(ua)) device = 'Mobile';
+  else if (/Tablet|iPad/i.test(ua)) device = 'Tablet';
+  let browser = 'Unknown';
+  if (ua.includes('Edg/')) browser = 'Edge';
+  else if (ua.includes('Chrome/')) browser = 'Chrome';
+  else if (ua.includes('Firefox/')) browser = 'Firefox';
+  else if (ua.includes('Safari/')) browser = 'Safari';
+  let os = 'Unknown';
+  if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iOS/.test(ua)) os = 'iOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  return `${device}-${browser}-${os}`;
+}
+
+function initProfile() {
+  // Check if there's existing data in localStorage
+  const hasLocalData = !!STATE.profile;
+
+  // Show welcome overlay on first visit OR if URL has ?fresh
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceWelcome = urlParams.has('fresh');
+
+  if (!hasLocalData || forceWelcome) {
+    showWelcome(hasLocalData);
+    // Don't init yet — wait for user choice
+    return false;
+  }
+
+  finishInit();
+  return true;
+}
+
+function showWelcome(hasLocalData) {
+  const overlay = $('#welcome-overlay');
+  overlay.classList.remove('hidden');
+  // If no local data, hide "continue" option
+  if (!hasLocalData) {
+    $('#welcome-continue').style.display = 'none';
+  } else {
+    // Update the continue button text with profile info
+    const sessions = STATE.profile.iterations || 0;
+    const betCount = STATE.bets.filter(b => b.action === 'bet').length;
+    $('#welcome-continue .opt-desc').innerHTML =
+      `Detectei perfil <strong>${STATE.profile.id}</strong> com <strong>${sessions} sessões</strong> salvas e <strong>${betCount} bets</strong> registradas. Continuar com ele?`;
+  }
+}
+
+function finishInit() {
+  // Initialize profile if none exists
+  if (!STATE.profile) {
+    STATE.profile = {
+      id: generateProfileId(),
+      created: new Date().toISOString(),
+      iterations: 0,
+      deviceHistory: [],
+      lastSavedAt: null,
+    };
+  }
+
+  // Log this device session
+  const device = detectDevice();
+  const now = new Date().toISOString();
+  const lastEntry = STATE.profile.deviceHistory[STATE.profile.deviceHistory.length - 1];
+  if (!lastEntry || lastEntry.device !== device || (Date.now() - new Date(lastEntry.lastSeen).getTime()) > 3600000) {
+    STATE.profile.deviceHistory.push({ device, firstSeen: now, lastSeen: now });
+  } else {
+    lastEntry.lastSeen = now;
+  }
+  if (STATE.profile.deviceHistory.length > 50) {
+    STATE.profile.deviceHistory = STATE.profile.deviceHistory.slice(-50);
+  }
+  saveProfile();
+  renderSnapshotBar();
+
+  // Hide welcome
+  $('#welcome-overlay').classList.add('hidden');
+}
+
+// === WELCOME HANDLERS ===
+function setupWelcomeHandlers() {
+  $('#welcome-tutorial').addEventListener('click', startTutorial);
+
+  $('#welcome-load').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const snapshot = JSON.parse(text);
+        if (!snapshot.version || !snapshot.profile) throw new Error('Arquivo inválido — não é um perfil PROP TERMINAL');
+        seedFromSnapshot(snapshot);
+        // Skip welcome, finish init with loaded data
+        location.reload();
+      } catch (err) {
+        alert('Falha ao carregar perfil: ' + err.message);
+      }
+    };
+    input.click();
+  });
+
+  $('#welcome-new').addEventListener('click', () => {
+    if (STATE.profile) {
+      // Clear any existing data
+      const yes = confirm('Tem certeza? Isso apaga qualquer dado existente neste navegador.');
+      if (!yes) return;
+      localStorage.removeItem('bdl_profile');
+      localStorage.removeItem('bdl_bets');
+      localStorage.removeItem('bdl_settings');
+      localStorage.removeItem('bdl_key');
+      localStorage.removeItem('bdl_cache');
+      STATE.profile = null;
+      STATE.bets = [];
+    }
+    finishInit();
+  });
+
+  $('#welcome-continue').addEventListener('click', () => {
+    finishInit();
+  });
+}
+
+function saveProfile() {
+  localStorage.setItem('bdl_profile', JSON.stringify(STATE.profile));
+}
+
+function markDirty() {
+  STATE.isDirty = true;
+  renderSnapshotBar();
+}
+
+function markClean() {
+  STATE.isDirty = false;
+  renderSnapshotBar();
+}
+
+function renderSnapshotBar() {
+  if (!STATE.profile) return;
+  $('#profile-id').textContent = STATE.profile.id;
+  $('#iter-count').textContent = STATE.profile.iterations || 0;
+  const lastDevice = STATE.profile.deviceHistory.length
+    ? STATE.profile.deviceHistory[STATE.profile.deviceHistory.length - 1].device
+    : '–';
+  $('#last-device').textContent = lastDevice;
+  const status = $('#snapshot-status');
+  if (STATE.isDirty) {
+    status.textContent = 'unsaved changes — export!';
+    status.style.color = 'var(--yellow)';
+  } else {
+    status.textContent = 'in sync';
+    status.style.color = 'var(--green)';
+  }
+}
+
+function renderProfile() {
+  if (!STATE.profile) return;
+  $('#p-profile-id').textContent = STATE.profile.id;
+  $('#p-iter-count').textContent = STATE.profile.iterations || 0;
+  $('#p-created').textContent = STATE.profile.created.slice(0, 10);
+  const last = STATE.profile.deviceHistory[STATE.profile.deviceHistory.length - 1];
+  $('#p-last-device').textContent = last ? last.device : '–';
+  $('#p-last-time').textContent = last ? new Date(last.lastSeen).toLocaleString() : '–';
+
+  // Device history
+  const history = STATE.profile.deviceHistory.slice().reverse();
+  if (!history.length) {
+    $('#device-history').innerHTML = '<div style="color: var(--ink-faint);">no history yet</div>';
+  } else {
+    $('#device-history').innerHTML = history.map(h => `
+      <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--line);">
+        <span style="color: var(--ink);">${h.device}</span>
+        <span style="color: var(--ink-faint);">${new Date(h.lastSeen).toLocaleString()}</span>
+      </div>
+    `).join('');
+  }
+
+  // Storage stats
+  $('#p-bet-count').textContent = STATE.bets.filter(b => b.action === 'bet').length;
+  $('#p-bet-settled').textContent = STATE.bets.filter(b => b.action === 'bet' && (b.status === 'win' || b.status === 'loss')).length;
+  $('#p-bet-pending').textContent = STATE.bets.filter(b => b.action === 'bet' && b.status === 'pending').length;
+
+  // Estimate snapshot size
+  const snapshotSize = JSON.stringify(buildSnapshot()).length;
+  $('#p-snapshot-size').textContent = (snapshotSize / 1024).toFixed(1) + ' KB';
+}
+
+function buildSnapshot() {
+  return {
+    version: 'v4',
+    generatedAt: new Date().toISOString(),
+    profile: STATE.profile,
+    bets: STATE.bets,
+    settings: STATE.settings,
+    apiKey: STATE.apiKey, // user can choose to clear before sending
+    // Note: cache NOT included on purpose — it's transient and bloats file
+  };
+}
+
+function seedFromSnapshot(snapshot) {
+  if (snapshot.profile) {
+    STATE.profile = snapshot.profile;
+    localStorage.setItem('bdl_profile', JSON.stringify(snapshot.profile));
+  }
+  if (snapshot.bets) {
+    STATE.bets = snapshot.bets;
+    localStorage.setItem('bdl_bets', JSON.stringify(snapshot.bets));
+  }
+  if (snapshot.settings) {
+    STATE.settings = Object.assign(STATE.settings, snapshot.settings);
+    localStorage.setItem('bdl_settings', JSON.stringify(STATE.settings));
+  }
+  if (snapshot.apiKey) {
+    STATE.apiKey = snapshot.apiKey;
+    localStorage.setItem('bdl_key', snapshot.apiKey);
+  }
+}
+
+// === TUTORIAL SYSTEM ===
+const TUTORIAL_STEPS = [
+  {
+    title: 'O que é o PROP TERMINAL?',
+    body: `
+      <h3>O que é isso aqui?</h3>
+      <p>É uma <strong>ferramenta de análise estatística</strong> pra apostas em player props da NBA. Pegou: <em>"James Harden mais de 17.5 pontos"</em>, <em>"LeBron menos de 8.5 assistências"</em>, etc. O terminal te diz se a odd que a casa tá oferecendo tem <strong>valor matemático</strong> ou se é furada.</p>
+
+      <h4>O que faz por baixo dos panos?</h4>
+      <p>Pra cada aposta que tu coloca, ele puxa os últimos 30+ jogos do jogador via API gratuita, ajusta por <strong>contexto</strong> (descanso, casa/fora, adversário, ritmo do jogo), e roda <strong>3 modelos estatísticos diferentes</strong> em paralelo:</p>
+      <ul>
+        <li><strong>Empírico</strong>: % das vezes que ele bateu a linha, ponderado por recência</li>
+        <li><strong>Distribuição (Poisson/NegBinomial)</strong>: matemática estatística pura</li>
+        <li><strong>Bayesiano</strong>: regrida média recente pra média de carreira</li>
+      </ul>
+      <p>Compara a probabilidade real estimada com a probabilidade implícita da odd, e te dá um veredito: APOSTAR, LEAN, PASS ou FADE. <strong>Tudo com explicação textual de PORQUÊ.</strong></p>
+
+      <div class="highlight">
+        <strong>Filosofia:</strong> apostas com edge (vantagem matemática) > 5% são lucrativas a longo prazo pela Lei dos Grandes Números. Apostas sem edge são perdedoras matematicamente garantidas. O app te ajuda a só entrar quando o edge é real.
+      </div>
+    `
+  },
+  {
+    title: 'Setup · API Key',
+    body: `
+      <h3>Primeiro passo: API Key gratuita</h3>
+      <p>O terminal precisa de uma chave de API pra puxar dados dos jogos. <strong>É gratuita pra sempre</strong>, sem cartão. Vamos lá:</p>
+
+      <h4>Passo 1: Criar conta</h4>
+      <p>Abre <a href="https://app.balldontlie.io/signup" target="_blank" rel="noopener">app.balldontlie.io/signup</a> em outra aba. Cria conta com email ou Google. <strong>Não precisa cartão de crédito</strong>.</p>
+
+      <h4>Passo 2: Copiar a chave</h4>
+      <p>Logado, vai pra <a href="https://app.balldontlie.io" target="_blank" rel="noopener">app.balldontlie.io</a>. No dashboard tem uma seção <strong>"API Key"</strong> com uma chave longa tipo <code>abc123-def456-ghi789-xyz000</code>. Copia ela inteira.</p>
+
+      <h4>Passo 3: Colar aqui</h4>
+      <p>Quando tu sair desse tutorial, vai na aba <strong>Settings</strong> e cola a chave no campo <strong>"BALLDONTLIE API KEY"</strong>. Clica Save Key.</p>
+
+      <div class="highlight">
+        <strong>Limites do plano gratuito:</strong> 5 requests por minuto. Suficiente pra analisar 5-10 jogadores por noite tranquilo. Pra mais volume, o tier ALL-STAR ($9.99/mês) sobe pra 60/min.
+      </div>
+
+      <div class="warn">
+        <strong>Privacidade:</strong> a chave fica salva só no teu navegador (localStorage). Vai junto no arquivo de perfil quando exportas. NUNCA compartilhe esse arquivo de perfil com gente que tu não confia, porque a chave deles vai junto.
+      </div>
+    `
+  },
+  {
+    title: 'Setup · Bankroll',
+    body: `
+      <h3>Configurar tua banca</h3>
+      <p>Em <strong>Settings</strong>, configura também o campo <strong>Bankroll (units)</strong>. Isso é fundamental pra o app calcular o tamanho ideal de cada aposta.</p>
+
+      <h4>Como definir banca em "unidades"</h4>
+      <p>Decide quanto dinheiro real tu vai dedicar pra apostas (ex: R$1000). Define quanto vale 1 unidade (ex: R$10). Tua banca é 100 unidades. Sempre apostarás em unidades depois disso.</p>
+
+      <p><strong>Por que unidades em vez de R$?</strong> Pra tu não pensar emocionalmente em valor monetário. "Aposto 2 unidades" é menos visceral que "aposto R$20". Profissionais sempre falam em unidades.</p>
+
+      <h4>Configurações importantes (deixa o padrão se não souber)</h4>
+      <ul>
+        <li><strong>Min Edge for BET (5%)</strong>: só recomenda apostar se modelo aponta edge ≥ 5%. Threshold seguro.</li>
+        <li><strong>Kelly Fraction (0.25)</strong>: aposta 25% do Kelly puro. Reduz volatilidade da banca.</li>
+        <li><strong>Bayesian Prior Weight (30)</strong>: quanto regredir tua média recente pra média de carreira.</li>
+      </ul>
+
+      <div class="warn">
+        <strong>Regra de ouro:</strong> nunca aposte mais de 5% da banca em UMA aposta, mesmo que Kelly indique mais. Variância existe. Quem ignora isso quebra antes do edge se manifestar.
+      </div>
+    `
+  },
+  {
+    title: 'Como rodar uma análise',
+    body: `
+      <h3>Workflow básico de análise</h3>
+      <p>Depois de configurar API key e bankroll, vai pra aba <strong>Analyze</strong>. Esse é o coração do app. Passo a passo:</p>
+
+      <h4>1. Buscar o jogador</h4>
+      <p>No campo "Search Player", digita parte do nome (ex: "harden"). Aparecem sugestões. Clica no jogador.</p>
+
+      <h4>2. Configurar a aposta</h4>
+      <p>Define o que tu quer apostar:</p>
+      <ul>
+        <li><strong>Stat</strong>: pontos, rebotes, assistências, PRA (P+R+A), 3PM, etc.</li>
+        <li><strong>Side</strong>: Over (acima) ou Under (abaixo) da linha</li>
+        <li><strong>Line</strong>: a linha que a casa tá oferecendo (ex: 17.5)</li>
+        <li><strong>Odd</strong>: a odd em formato decimal (ex: 1.83). Se tua casa mostra americana ou fracionária, converte primeiro.</li>
+      </ul>
+
+      <h4>3. (Importante) Configurar contexto</h4>
+      <p>Quanto mais contexto, melhor a análise:</p>
+      <ul>
+        <li><strong>Seasons</strong>: marca 2-3 temporadas (mais dado = melhor). 1 só pode ter pouca amostra.</li>
+        <li><strong>Opponent</strong>: seleciona o adversário do próximo jogo. Habilita análise de pace e matchup defensivo.</li>
+        <li><strong>Venue</strong>: filtra só jogos em casa ou fora se relevante.</li>
+        <li><strong>Rest Days</strong>: filtra só back-to-back ou só com descanso.</li>
+        <li><strong>Teammate</strong>: filtra jogos COM ou SEM um teammate específico (ex: análise sem LeBron).</li>
+      </ul>
+
+      <h4>4. Run Analysis</h4>
+      <p>Clica e espera 10-30 segundos. O app puxa os jogos, processa, e te dá o veredito completo.</p>
+
+      <div class="highlight">
+        <strong>Dica:</strong> ative <strong>"Compute REAL usage rate"</strong> só quando importar muito. Aumenta tempo de análise mas dá métricas mais precisas.
+      </div>
+    `
+  },
+  {
+    title: 'Como interpretar o resultado',
+    body: `
+      <h3>Lendo a análise</h3>
+      <p>O resultado tem várias seções. Da mais importante pra menos:</p>
+
+      <h4>1. Verdict (topo)</h4>
+      <p>Três cards lado a lado: <strong>Probabilidade do Modelo</strong> · <strong>Probabilidade Implícita da Odd</strong> · <strong>Edge & EV</strong>. Edge positivo + verde = a casa tá pagando MAIS do que devia, valor existe.</p>
+
+      <h4>2. Recomendação colorida</h4>
+      <p>Box destacado dizendo: <strong>BET</strong> (verde, edge ≥ 5%), <strong>LEAN</strong> (amarelo, edge marginal), <strong>PASS</strong> (cinza, sem edge), ou <strong>FADE</strong> (vermelho, o lado oposto tem edge). Inclui sugestão de stake via Kelly.</p>
+
+      <h4>3. Reasoning Box (azul) — LÊ ESSA</h4>
+      <p>Bloco azul com 7 parágrafos explicando o porquê em português claro. Quem é o jogador, qual a forma recente, contexto do jogo, splits relevantes, o que cada modelo disse, e a conclusão final. <strong>Nunca confie cegamente no veredito sem ler isso.</strong></p>
+
+      <h4>4. Sinais (chips)</h4>
+      <p>Tags coloridas marcando padrões importantes:</p>
+      <ul>
+        <li><strong style="color:var(--green);">Verde:</strong> sinal positivo (em alta, matchup soft, modelos concordam)</li>
+        <li><strong style="color:var(--yellow);">Amarelo:</strong> atenção (variância alta, amostra pequena, pace neutro)</li>
+        <li><strong style="color:var(--red);">Vermelho:</strong> sinal negativo (em baixa, matchup difícil, role reduzido)</li>
+      </ul>
+
+      <h4>5. Tooltips em todo lugar</h4>
+      <p>Vê uma <strong>?</strong> dentro de uma bolinha cinza? Passa o mouse (PC) ou toca (celular) pra abrir explicação curta sobre aquele termo.</p>
+
+      <div class="warn">
+        <strong>Não aposta só porque o app falou.</strong> O modelo é uma calculadora estatística. Use o reasoning text + tua intuição + verificação de últimas notícias (lesões, escalações). Modelo nunca substitui pensamento crítico.
+      </div>
+    `
+  },
+  {
+    title: 'O perfil portátil (.json) — IMPORTANTE',
+    body: `
+      <h3>Como funciona teu perfil</h3>
+      <p>Esse app é <strong>100% client-side</strong>: não tem servidor, banco de dados, nem login. Toda tua informação (bets, settings, API key, histórico) fica no navegador atual via <strong>localStorage</strong>.</p>
+
+      <p>Pra usar entre dispositivos (celular ↔ PC ↔ outro celular), o app gera um arquivo <code>.json</code> com tudo isso, que tu transporta manualmente.</p>
+
+      <h4>📥 Como funciona na prática</h4>
+      <ol style="margin-left: 20px; color: var(--ink-dim); margin-bottom: 12px;">
+        <li>Tu abre o app no PC. Faz análises, loga apostas. Tudo salvo no localStorage do PC.</li>
+        <li><strong>Antes de fechar a aba, clica em 💾 Save Profile</strong> (botão no topo). Vai baixar um arquivo <code>propterminal_PROFILEID_s001_data.json</code>.</li>
+        <li>Quer usar no celular? Abre o app no celular (mesmo link). Welcome screen aparece. Clica <strong>📂 Carregar Perfil Existente</strong> e seleciona o .json baixado.</li>
+        <li>App popula com todos teus dados. Continua de onde parou.</li>
+        <li>Ao terminar no celular, <strong>Save Profile de novo</strong>. Manda esse arquivo de volta pro PC se for usar lá depois.</li>
+      </ol>
+
+      <div class="highlight">
+        <strong>Indicador de mudanças:</strong> no topo, vê "in sync" (verde) quando tudo tá salvo, ou "<span style="color:var(--yellow);">unsaved changes — export!</span>" (amarelo) quando tem mudanças desde o último save. Não ignore esse aviso.
+      </div>
+
+      <h4>⚠ Regra crítica</h4>
+      <div class="warn">
+        <strong>Sempre Save Profile antes de mudar de dispositivo.</strong> Se tu fizer 5 análises no PC, NÃO salvar, e abrir no celular com um perfil antigo, tu PERDE essas 5 análises. Não tem como recuperar.<br><br>
+        <strong>Não trabalhe em paralelo</strong> em 2 dispositivos sem sincronizar. Sempre 1 dispositivo de cada vez, com save no fim de cada sessão.
+      </div>
+
+      <h4>Como compartilhar com amigo</h4>
+      <p>Manda o link do app pra ele (a URL do GitHub Pages). Ele abre, escolhe "✨ Pular e Começar do Zero", configura a chave dele e bankroll dele, usa. Cada um tem perfil separado em seu próprio dispositivo.</p>
+
+      <p><strong>Não passe teu .json pra ele</strong> — vai junto tua API key e teu histórico.</p>
+    `
+  },
+  {
+    title: 'Workflow recomendado e próximos passos',
+    body: `
+      <h3>Como usar de forma que faça sentido</h3>
+      <p>Não é mágica. Pra extrair valor real do app, segue um workflow disciplinado:</p>
+
+      <h4>Antes de cada noite de jogos</h4>
+      <ol style="margin-left: 20px; color: var(--ink-dim); margin-bottom: 12px;">
+        <li>Abre o app, carrega teu perfil</li>
+        <li>Vai na aba <strong>Injuries</strong>, clica Refresh. Vê quem tá out/questionable hoje.</li>
+        <li>Pra cada player prop que tu vai considerar:
+          <ul>
+            <li>Roda análise com 2-3 temporadas, opponent selecionado</li>
+            <li>LÊ o reasoning box todo</li>
+            <li>Só aposta se: edge ≥ 5% E modelos concordam E nenhum sinal vermelho crítico</li>
+          </ul>
+        </li>
+        <li>Cada bet que tu decidir fazer: clica <strong>Log this bet</strong>. Coloca stake (Kelly sugere) e closing odd se tiveres.</li>
+      </ol>
+
+      <h4>Após os jogos</h4>
+      <ol style="margin-left: 20px; color: var(--ink-dim); margin-bottom: 12px;">
+        <li>Abre app, vai na aba <strong>Profile</strong>, seção <strong>Auto-Settlement</strong></li>
+        <li>Clica Run Auto-Settlement. Marca W/L automaticamente buscando os resultados via API.</li>
+        <li>Vai na aba <strong>Tracker</strong> e vê teu ROI, win rate, CLV.</li>
+        <li><strong>Save Profile</strong> antes de fechar.</li>
+      </ol>
+
+      <h4>O que prestar atenção a longo prazo</h4>
+      <ul>
+        <li><strong>CLV positivo é mais importante que win rate.</strong> Se tu tá batendo a closing line, edge é real, dinheiro vem com tempo.</li>
+        <li><strong>Mínimo 50-100 bets pra interpretar resultados.</strong> Antes disso é puro ruído.</li>
+        <li>Se ROI consistente positivo após 100+ bets: tu achou edge. Mantém disciplina.</li>
+        <li>Se ROI negativo após 100+ bets: o modelo não tá funcionando bem pro teu nicho. Re-avalia.</li>
+      </ul>
+
+      <h4>Recursos extras (depois)</h4>
+      <p>Quando tu sair desse tutorial, explora:</p>
+      <ul>
+        <li>Aba <strong>Learn</strong>: glossário completo, filosofia, conceitos detalhados</li>
+        <li>Aba <strong>Settings</strong>: ajusta thresholds, model blend, Kelly fraction conforme experiência</li>
+        <li>Tooltips (?) em quase todos os labels: explicações curtas instantâneas</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Última coisa:</strong> esse app é uma ferramenta. Apostas envolvem variância e risco real. Nunca aposta dinheiro que tu não pode perder. Defina bankroll fixo e não saia dele. Se virar diversão estressante, para.
+      </div>
+
+      <p style="text-align:center; margin-top: 20px; color: var(--accent); font-weight: 700;">Pronto pra começar! 🚀</p>
+    `
+  },
+];
+
+let currentTutStep = 0;
+
+function startTutorial() {
+  $('#welcome-overlay').classList.add('hidden');
+  $('#tutorial-overlay').classList.remove('hidden');
+  currentTutStep = 0;
+  $('#tut-total').textContent = TUTORIAL_STEPS.length;
+  renderTutDots();
+  renderTutStep();
+}
+
+function renderTutStep() {
+  const step = TUTORIAL_STEPS[currentTutStep];
+  $('#tut-current').textContent = currentTutStep + 1;
+  $('#tutorial-body').innerHTML = step.body;
+  $('#tutorial-body').scrollTop = 0;
+
+  // Update dots
+  document.querySelectorAll('.tutorial-dot').forEach((d, i) => {
+    d.classList.remove('active', 'done');
+    if (i === currentTutStep) d.classList.add('active');
+    else if (i < currentTutStep) d.classList.add('done');
+  });
+
+  // Update buttons
+  $('#tut-prev').style.visibility = currentTutStep === 0 ? 'hidden' : 'visible';
+  $('#tut-next').textContent = currentTutStep === TUTORIAL_STEPS.length - 1 ? 'Finalizar →' : 'Próximo →';
+}
+
+function renderTutDots() {
+  const dotsCtr = $('#tutorial-dots');
+  dotsCtr.innerHTML = '';
+  for (let i = 0; i < TUTORIAL_STEPS.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'tutorial-dot';
+    dot.addEventListener('click', () => {
+      currentTutStep = i;
+      renderTutStep();
+    });
+    dotsCtr.appendChild(dot);
+  }
+}
+
+function endTutorial() {
+  $('#tutorial-overlay').classList.add('hidden');
+  // Only re-show welcome if user came from welcome (no profile data yet)
+  if (!STATE.profile || !$('#welcome-overlay').classList.contains('was-active')) {
+    if (!STATE.profile) {
+      $('#welcome-overlay').classList.remove('hidden');
+      $('#welcome-tutorial').style.display = 'none';
+    }
+  }
+}
+
+// Wire up tutorial buttons (after DOM ready)
+function setupTutorialHandlers() {
+  $('#tut-next').addEventListener('click', () => {
+    if (currentTutStep < TUTORIAL_STEPS.length - 1) {
+      currentTutStep++;
+      renderTutStep();
+    } else {
+      endTutorial();
+    }
+  });
+  $('#tut-prev').addEventListener('click', () => {
+    if (currentTutStep > 0) {
+      currentTutStep--;
+      renderTutStep();
+    }
+  });
+  $('#tut-skip').addEventListener('click', endTutorial);
+}
+
+// === SAVE PROFILE (JSON only, much smaller than HTML snapshot) ===
+async function downloadSnapshot() {
+  STATE.profile.iterations = (STATE.profile.iterations || 0) + 1;
+  STATE.profile.lastSavedAt = new Date().toISOString();
+  saveProfile();
+
+  const snapshot = buildSnapshot();
+  const json = JSON.stringify(snapshot, null, 2);
+  const date = new Date().toISOString().slice(0, 10);
+  const iter = STATE.profile.iterations.toString().padStart(3, '0');
+  const profIdShort = STATE.profile.id.slice(0, 12);
+  const filename = `propterminal_${profIdShort}_s${iter}_${date}.json`;
+
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  markClean();
+  // Subtle notification instead of alert
+  const status = $('#snapshot-status');
+  status.textContent = `saved · ${filename}`;
+  status.style.color = 'var(--green)';
+  setTimeout(() => renderSnapshotBar(), 4000);
+}
+
+// === LOAD PROFILE (from .json) ===
+function importSnapshot() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const snapshot = JSON.parse(text);
+      if (!snapshot.version || !snapshot.profile) throw new Error('Arquivo inválido — não é um perfil PROP TERMINAL');
+
+      const incomingId = snapshot.profile.id;
+      const incomingIter = snapshot.profile.iterations || 0;
+      const currentId = STATE.profile ? STATE.profile.id : null;
+      const currentIter = STATE.profile ? (STATE.profile.iterations || 0) : 0;
+
+      let confirmMsg;
+      if (currentId === incomingId) {
+        if (incomingIter < currentIter) {
+          confirmMsg = `⚠ Este perfil é o MESMO mas mais ANTIGO (sessão ${incomingIter} < atual ${currentIter}).\n\nCarregar vai REVERTER mudanças recentes.\n\nContinuar?`;
+        } else if (incomingIter === currentIter) {
+          confirmMsg = `Este perfil é igual ao atual. Carregar mesmo assim?`;
+        } else {
+          confirmMsg = `Carregar perfil ${incomingId} (sessão ${incomingIter}, mais recente que a atual ${currentIter})?`;
+        }
+      } else {
+        confirmMsg = `Carregar perfil DIFERENTE (${incomingId})?\n\nSessão ${incomingIter} · ${(snapshot.bets||[]).length} bets · criado ${snapshot.profile.created.slice(0,10)}\n\nIsto vai SUBSTITUIR teus dados atuais. Salva o perfil atual antes se quiser preservar.`;
+      }
+      if (!confirm(confirmMsg)) return;
+
+      seedFromSnapshot(snapshot);
+      alert('Perfil carregado. Recarregando página...');
+      location.reload();
+    } catch (err) {
+      alert('Falha ao carregar: ' + err.message);
+    }
+  };
+  input.click();
+}
+
+// === RESET PROFILE ===
+function resetProfile() {
+  const c1 = confirm('Reset Profile?\n\nThis WIPES all bets, settings, API key, cache, and history. The HTML code stays. Use this when starting fresh on a file received from someone.\n\nAre you sure?');
+  if (!c1) return;
+  const c2 = confirm('REALLY sure? This cannot be undone.');
+  if (!c2) return;
+  localStorage.removeItem('bdl_profile');
+  localStorage.removeItem('bdl_bets');
+  localStorage.removeItem('bdl_settings');
+  localStorage.removeItem('bdl_key');
+  localStorage.removeItem('bdl_cache');
+  alert('Profile reset. Reloading...');
+  location.reload();
+}
+
+// === AUTO-SETTLEMENT ===
+async function runAutoSettlement() {
+  if (!STATE.apiKey) { alert('Set API key in Settings first'); return; }
+  const pending = STATE.bets.filter(b => b.action === 'bet' && b.status === 'pending');
+  if (!pending.length) {
+    $('#settle-result').innerHTML = '<div class="empty-state">No pending bets to settle.</div>';
+    return;
+  }
+  $('#settle-meta').innerHTML = '<span class="loader"></span>checking ' + pending.length + ' bets';
+  $('#settle-result').innerHTML = '<div style="color: var(--ink-dim); padding: 14px;">Fetching results...</div>';
+
+  let settled = 0, errors = 0, notReady = 0;
+  const lines = [];
+
+  for (const bet of pending) {
+    try {
+      // Fetch player's recent games (since the bet was logged)
+      const betDate = new Date(bet.timestamp);
+      const cutoff = new Date(betDate);
+      cutoff.setDate(cutoff.getDate() - 1); // look from day before bet
+      const dateStr = cutoff.toISOString().slice(0, 10);
+
+      const season = (betDate.getMonth() >= 9) ? betDate.getFullYear() : betDate.getFullYear() - 1;
+      const data = await bdlFetch('/stats', {
+        'player_ids[]': bet.playerId,
+        'seasons[]': season,
+        per_page: 25
+      }, false); // don't cache settlement queries
+
+      if (!data.data || !data.data.length) {
+        notReady++;
+        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — no game data found yet</div>`);
+        continue;
+      }
+
+      // Find first game on or after bet date (the targeted game)
+      const matched = data.data
+        .filter(g => g.game && g.game.date && new Date(g.game.date) >= cutoff)
+        .filter(g => computeStat(g, 'min') > 0)
+        .sort((a, b) => new Date(a.game.date) - new Date(b.game.date))[0];
+
+      if (!matched) {
+        notReady++;
+        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} — game not played yet</div>`);
+        continue;
+      }
+
+      const actualValue = computeStat(matched, bet.stat);
+      const won = bet.side === 'over' ? actualValue > bet.line : actualValue < bet.line;
+      const tied = actualValue === bet.line; // technically, with .5 lines this can't happen but with whole-number lines it can
+
+      bet.status = tied ? 'void' : (won ? 'win' : 'loss');
+      bet.actualValue = actualValue;
+      bet.gameDate = matched.game.date;
+      bet.modelError = bet.modelProb ? null : null; // could compute but model gave prob not value
+      // Save predicted vs actual for calibration
+      if (STATE.lastAnalysis && STATE.lastAnalysis.predMean) {
+        bet.predictedMean = STATE.lastAnalysis.predMean;
+      }
+
+      settled++;
+      const statusEmoji = bet.status === 'win' ? '✅' : bet.status === 'loss' ? '❌' : '⚪';
+      const statusColor = bet.status === 'win' ? 'var(--green)' : bet.status === 'loss' ? 'var(--red)' : 'var(--ink-dim)';
+      lines.push(`<div style="color: ${statusColor}; padding: 6px 0;">${statusEmoji} ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — actual: <strong>${actualValue}</strong> · ${bet.status.toUpperCase()}</div>`);
+
+    } catch (err) {
+      errors++;
+      lines.push(`<div style="color: var(--red); padding: 6px 0;">⚠ ${bet.player} — error: ${err.message}</div>`);
+    }
+  }
+
+  saveBets();
+  if (settled > 0) markDirty();
+  renderTrackerBadge();
+  $('#settle-meta').textContent = `${settled} settled · ${notReady} pending · ${errors} errors`;
+  $('#settle-result').innerHTML = `
+    <div style="font-size: 12px; line-height: 1.5;">
+      <div style="margin-bottom: 10px; color: var(--ink-dim);">
+        <strong style="color: var(--green);">${settled}</strong> settled ·
+        <strong style="color: var(--yellow);">${notReady}</strong> not ready ·
+        <strong style="color: var(--red);">${errors}</strong> errors
+      </div>
+      ${lines.join('')}
+    </div>
+  `;
+}
+
+// === EVENT WIRING ===
+$('#snapshot-btn').addEventListener('click', downloadSnapshot);
+$('#import-btn').addEventListener('click', importSnapshot);
+$('#reset-profile-btn').addEventListener('click', resetProfile);
+$('#auto-settle-btn').addEventListener('click', runAutoSettlement);
+
+// Tutorial button in Learn tab
+const openTutorialBtn = document.getElementById('open-tutorial-btn');
+if (openTutorialBtn) {
+  openTutorialBtn.addEventListener('click', () => {
+    currentTutStep = 0;
+    $('#tutorial-overlay').classList.remove('hidden');
+    $('#tut-total').textContent = TUTORIAL_STEPS.length;
+    renderTutDots();
+    renderTutStep();
+  });
+}
+
+// Mark dirty when settings save
+$('#save-settings').addEventListener('click', () => { if (typeof markDirty === 'function') markDirty(); });
+
+// Initialize profile on boot
+setupWelcomeHandlers();
+setupTutorialHandlers();
+initProfile();
+</script>
+</body>
+</html>

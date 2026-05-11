@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v12 // NBA · Duplicate Detection</title>
+<title>PROP TERMINAL v10 // NBA · Optimized API Layer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -190,42 +190,14 @@
   .kelly-box {
     background: var(--bg); border: 1px solid var(--line-2);
     padding: 12px; margin-top: 10px;
-    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
   }
-  @media(max-width: 720px) { .kelly-box { grid-template-columns: 1fr 1fr; } }
   .kelly-box .k-cell { text-align: center; }
   .kelly-box .k-cell .lbl {
     font-size: 9px; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px;
   }
   .kelly-box .k-cell .v { font-size: 17px; font-weight: 700; color: var(--accent); }
-  /* v11: Confidence bar */
-  .confidence-bar-container {
-    background: var(--bg-2); border: 1px solid var(--line);
-    padding: 12px; margin-top: 14px;
-  }
-  .confidence-bar-label {
-    display: flex; justify-content: space-between;
-    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink-dim); margin-bottom: 8px;
-  }
-  .confidence-bar-track {
-    height: 8px; background: var(--bg); border: 1px solid var(--line);
-    border-radius: 0; overflow: hidden; position: relative;
-  }
-  .confidence-bar-fill {
-    height: 100%; transition: width 0.4s ease;
-  }
-  .confidence-bar-reasons {
-    margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px;
-  }
-  .conf-reason {
-    font-size: 10px; padding: 2px 7px; border-radius: 0;
-    border: 1px solid transparent;
-  }
-  .conf-reason.conf-high { color: var(--red); border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.05); }
-  .conf-reason.conf-med { color: var(--yellow); border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.05); }
-  .conf-reason.conf-good { color: var(--green); border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.05); }
   .models-grid {
     display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
     background: var(--line); border: 1px solid var(--line);
@@ -800,7 +772,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v12 · Duplicate Detection · No-Vig Edge · Confidence Kelly</span>
+      <span class="tag">v10 · Token Bucket · Stratified Cache · Batched Requests</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -889,10 +861,6 @@
           <div>
             <label>Odd (decimal)</label>
             <input type="number" id="odd-input" step="0.01" placeholder="1.83" />
-          </div>
-          <div>
-            <label>Odd Opposite <span class="tip" data-tip="OPCIONAL mas RECOMENDADO. Informa a odd do lado contrário (se tu apostou OVER, informa a odd do UNDER). O sistema usa pra calcular o vig (margem da casa) e descontar do edge. Resulta em probabilidades mais precisas. Ex: se OVER 1.80 e UNDER 1.95, o vig é 6.9%.">?</span></label>
-            <input type="number" id="odd-opposite-input" step="0.01" placeholder="opcional · ex: 2.00" />
           </div>
         </div>
 
@@ -1027,7 +995,6 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <h3 style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim);">All Bets</h3>
           <div style="display:flex; gap:8px;">
-            <button class="ghost" id="dedupe-bets" style="width:auto; padding:5px 12px; font-size:10px;" title="Remove duplicatas das últimas 24h">Dedupe</button>
             <button class="ghost" id="export-bets" style="width:auto; padding:5px 12px; font-size:10px;">Export JSON</button>
             <button class="danger" id="clear-bets" style="width:auto; padding:5px 12px; font-size:10px;">Clear All</button>
           </div>
@@ -1496,7 +1463,6 @@ const STATE = {
   cache: JSON.parse(localStorage.getItem('bdl_cache') || '{}'),
   profile: JSON.parse(localStorage.getItem('bdl_profile') || 'null'),
   searchTimer: null, teams: null, injuries: null, lastAnalysis: null,
-  pendingAnalysis: JSON.parse(localStorage.getItem('bdl_pending_analysis') || 'null'), // v11
   isDirty: false, // true when changes made since last snapshot
 };
 const API_BASE = 'https://api.balldontlie.io/v1';
@@ -1507,122 +1473,6 @@ function $$(s) { return document.querySelectorAll(s); }
 function fmt(n, dec=1) { if (n === null || n === undefined || isNaN(n)) return '–'; return Number(n).toFixed(dec); }
 function pct(p, dec=1) { if (p === null || p === undefined || isNaN(p)) return '–'; return (p*100).toFixed(dec) + '%'; }
 function impliedProb(odd) { return 1 / odd; }
-
-// v11: Remove vig from a pair of opposing odds
-// Returns { fairProbA, fairProbB, vig, asymmetric, vigSideA, vigSideB }
-function removeVig(oddA, oddB) {
-  if (!oddA || !oddB || oddA <= 1 || oddB <= 1) return null;
-  const impA = 1 / oddA;
-  const impB = 1 / oddB;
-  const totalImplied = impA + impB;
-  const vig = totalImplied - 1; // total margin (e.g., 0.069 = 6.9%)
-  // Proportional method (most common, valid for moderate vig)
-  const fairProbA = impA / totalImplied;
-  const fairProbB = impB / totalImplied;
-  // Check for asymmetric vig: one side carries more margin than the other
-  // vigSide = how much extra above fair each side has
-  const vigSideA = impA - fairProbA;
-  const vigSideB = impB - fairProbB;
-  // Asymmetric flag: one side's vig is >1.5x the other's
-  const asymmetric = Math.abs(vigSideA - vigSideB) > vig * 0.2;
-  return { fairProbA, fairProbB, vig, asymmetric, vigSideA, vigSideB };
-}
-
-// v11: Classify vig level
-function classifyVig(vig) {
-  if (vig < 0.04) return { label: 'low', color: 'good', desc: 'vig baixo (mercado eficiente)' };
-  if (vig < 0.07) return { label: 'normal', color: 'neutral', desc: 'vig normal (casa padrão)' };
-  if (vig < 0.10) return { label: 'high', color: 'warn', desc: 'vig alto (mercado fechado)' };
-  return { label: 'extreme', color: 'bad', desc: 'vig extremo (evita ou shop)' };
-}
-
-// v11: Compute confidence multiplier (0.3 - 1.0) based on signal quality
-// Used to discount Kelly stake when signals are uncertain
-function computeConfidence({
-  modelSpread,      // |max blend - min blend| (0-1)
-  sampleN,          // N games used
-  trend,            // {direction, r2} or null
-  side,             // 'over' or 'under'
-  bimodal,          // {isBimodal, separation}
-  streakAgainst,    // boolean: current streak goes against the bet?
-  cv,               // coefficient of variation (sd/mean)
-}) {
-  let conf = 1.0;
-  const reasons = [];
-
-  // 1. Model agreement: spread < 4% = strong, > 10% = weak
-  if (modelSpread > 0.10) {
-    conf *= 0.65;
-    reasons.push({ severity: 'high', txt: `Modelos discordam (spread ${pct(modelSpread,1)})` });
-  } else if (modelSpread > 0.06) {
-    conf *= 0.85;
-    reasons.push({ severity: 'med', txt: `Modelos com discordância moderada (spread ${pct(modelSpread,1)})` });
-  } else if (modelSpread < 0.03) {
-    conf *= 1.05;  // small boost for high agreement (capped at 1.0 below)
-  }
-
-  // 2. Sample size: N >= 30 ideal, N < 15 risky
-  if (sampleN < 15) {
-    conf *= 0.55;
-    reasons.push({ severity: 'high', txt: `Amostra muito pequena (N=${sampleN})` });
-  } else if (sampleN < 30) {
-    conf *= 0.80;
-    reasons.push({ severity: 'med', txt: `Amostra modesta (N=${sampleN})` });
-  } else if (sampleN >= 60) {
-    conf *= 1.05; // boost for solid sample
-  }
-
-  // 3. Trend against the bet
-  if (trend && trend.r2 > 0.3) {
-    const trendAgainst = (trend.direction === 'falling' && side === 'over') ||
-                         (trend.direction === 'rising' && side === 'under');
-    if (trendAgainst) {
-      const factor = trend.r2 > 0.5 ? 0.65 : 0.80;
-      conf *= factor;
-      reasons.push({ severity: trend.r2 > 0.5 ? 'high' : 'med', txt: `Tendência contra (${trend.strengthLabel || 'caindo'}, r²=${fmt(trend.r2,2)})` });
-    } else if (trend.r2 > 0.3) {
-      conf *= 1.05; // boost for trend in favor
-    }
-  }
-
-  // 4. Bimodal (boom/bust) — increases variance, harder to trust
-  if (bimodal && bimodal.isBimodal) {
-    conf *= 0.85;
-    reasons.push({ severity: 'med', txt: 'Padrão boom/bust aumenta variância' });
-  }
-
-  // 5. Current streak against the bet (3+ misses on the side bet)
-  if (streakAgainst) {
-    conf *= 0.85;
-    reasons.push({ severity: 'med', txt: 'Forma recente contra' });
-  }
-
-  // 6. High coefficient of variation (volatile stat)
-  if (cv > 0.45) {
-    conf *= 0.85;
-    reasons.push({ severity: 'med', txt: `Stat muito volátil (CV ${fmt(cv,2)})` });
-  }
-
-  // Clamp to [0.3, 1.0]
-  conf = Math.max(0.3, Math.min(1.0, conf));
-  return { confidence: conf, reasons };
-}
-
-// v11: Compute final stake with confidence + hard cap
-// Stake = min(quarterKelly × confidence × bankroll, hardCap × bankroll)
-function computeFinalStake(kellyFraction, confidence, bankroll, hardCapPct = 0.025) {
-  const quarterKelly = kellyFraction * 0.25; // already-applied? careful
-  const adjustedKelly = kellyFraction * confidence; // confidence applies to FULL kelly
-  const cappedFraction = Math.min(adjustedKelly, hardCapPct);
-  return {
-    rawKelly: kellyFraction,
-    confidence,
-    adjustedKelly,
-    finalFraction: cappedFraction,
-    stakeUnits: cappedFraction * bankroll,
-    wasCapped: adjustedKelly > hardCapPct,
-  };
-}
 function evPct(p, odd) { return p * (odd - 1) - (1 - p); }
 function avg(a) { return a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0; }
 function median(a) {
@@ -1692,8 +1542,6 @@ const TIPS = {
   models_agree: 'Quando os 3 modelos (Empirical, Distribution, Bayesian) dão probabilidades similares (spread <4%), confiança alta. Spread >10% = modelos discordam, sinal fraco.',
   brier: 'Brier Score = média de (probabilidade prevista - resultado real)². Mede calibração. Score 0 = perfeito. 0.25 = chute aleatório. Quanto MENOR, melhor. Usado pra comparar qualidade dos modelos de forma estatística rigorosa.',
   normal: 'Modelo Normal: assume distribuição Gaussiana (Lei dos Grandes Números aplicada às possessions). Usado pra stats de alta contagem (pontos, rebotes, assistências) onde Poisson seria muito aproximado. Melhor calibração que Poisson/NegBinomial pra esses stats.',
-  fair_prob: 'Probabilidade real estimada pela casa, com o vig (margem) removido. Quando tu informa as duas odds (OVER e UNDER), o sistema calcula a soma e remove a margem proporcionalmente. Edge calculado contra a fair prob é mais preciso que contra implied.',
-  confidence_kelly: 'Stake final = Quarter Kelly × Confidence × Bankroll, com hard cap em 2.5% da banca por aposta. A confidence (0.3-1.0) desconta automaticamente quando: modelos discordam, amostra pequena, tendência contra, padrão boom/bust, ou stat muito volátil. Protege contra erros do modelo.',
 };
 
 function tip(key) {
@@ -2015,12 +1863,6 @@ $('#save-key').addEventListener('click', () => {
   STATE.apiKey = v;
   localStorage.setItem('bdl_key', v);
   refreshAuthMeta();
-  // v11: Retry loading teams now that API key is set
-  if (typeof loadTeams === 'function') {
-    loadTeams(true).then(t => {
-      if (t && t.length) console.log(`Loaded ${t.length} teams after key save.`);
-    });
-  }
 });
 refreshAuthMeta();
 
@@ -2044,40 +1886,24 @@ function buildSeasonsCheckboxes() {
 buildSeasonsCheckboxes();
 
 // === TEAMS ===
-async function loadTeams(force=false) {
-  // v11: Skip if no API key (will retry when key is saved)
-  if (!STATE.apiKey) return null;
-  if (STATE.teams && !force) return STATE.teams;
+async function loadTeams() {
+  if (STATE.teams) return STATE.teams;
   try {
     const data = await bdlFetch('/teams', {});
     STATE.teams = (data.data || []).filter(t => t.full_name);
     STATE.teams.sort((a,b) => a.full_name.localeCompare(b.full_name));
     const sel = $('#opponent-select');
     const sel2 = $('#injury-team-filter');
-    if (sel) {
-      // Clear existing options (keep only the placeholder "— None —")
-      while (sel.options.length > 1) sel.remove(1);
-      STATE.teams.forEach(t => {
-        const o1 = document.createElement('option');
-        o1.value = t.id; o1.textContent = `${t.abbreviation} — ${t.full_name}`;
-        sel.appendChild(o1);
-      });
-    }
-    if (sel2) {
-      while (sel2.options.length > 1) sel2.remove(1);
-      STATE.teams.forEach(t => {
-        const o2 = document.createElement('option');
-        o2.value = t.id; o2.textContent = `${t.abbreviation} — ${t.full_name}`;
-        sel2.appendChild(o2);
-      });
-    }
-    return STATE.teams;
-  } catch(e) {
-    console.warn('teams load fail', e.message);
-    return null;
-  }
+    STATE.teams.forEach(t => {
+      const o1 = document.createElement('option');
+      o1.value = t.id; o1.textContent = `${t.abbreviation} — ${t.full_name}`;
+      sel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = t.id; o2.textContent = `${t.abbreviation} — ${t.full_name}`;
+      sel2.appendChild(o2);
+    });
+  } catch(e) { console.warn('teams load fail', e.message); }
 }
-// v11: Initial attempt, but also retry when API key gets saved
 loadTeams();
 
 // === SEARCH ===
@@ -2444,14 +2270,9 @@ $('#clear-btn').addEventListener('click', () => {
 });
 
 async function runAnalysis() {
-  // v11: Auto-skip previous analysis if user didn't log it
-  if (typeof maybeAutoSkipPrevious === 'function') {
-    maybeAutoSkipPrevious();
-  }
   if (!STATE.player) return;
   const line = parseFloat($('#line-input').value);
   const odd = parseFloat($('#odd-input').value);
-  const oddOpposite = parseFloat($('#odd-opposite-input').value); // v11: optional
   const stat = $('#stat-select').value;
   const side = $('#side-select').value;
   if (isNaN(line) || isNaN(odd) || odd <= 1) { alert('Invalid line/odd'); return; }
@@ -2896,109 +2717,37 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   const weights = BLEND_WEIGHTS[STATE.settings.modelBlend] || BLEND_WEIGHTS.balanced;
   const finalProb = allBlendProbs[STATE.settings.modelBlend] || allBlendProbs.balanced;
   const impl = impliedProb(odd);
-
-  // v11: No-Vig calculation if opposite odd provided
-  let vigData = null, fairProb = null, edgeVsImplied = null, edgeVsFair = null;
-  if (oddOpposite && !isNaN(oddOpposite) && oddOpposite > 1) {
-    vigData = removeVig(odd, oddOpposite);
-    if (vigData) {
-      fairProb = vigData.fairProbA; // probability for the side bet
-      edgeVsFair = finalProb - fairProb;
-    }
-  }
-  edgeVsImplied = finalProb - impl;
-  // PRIMARY edge: use fair if vig was computed, else implied
-  const edge = (edgeVsFair !== null) ? edgeVsFair : edgeVsImplied;
-  // For EV calculation, still use the actual odd offered (that's what you collect)
   const ev = evPct(finalProb, odd);
-
-  // v11: Compute confidence-weighted Kelly
-  const modelSpread = Math.max(empProb, poisProb, bayesProb) - Math.min(empProb, poisProb, bayesProb);
-  const trendForKelly = computeTrend(values, 10);
-  const bimodalForKelly = detectBimodal(values);
-  const streakForKelly = detectStreak(values, line, side);
-  const streakAgainstKelly = streakForKelly && streakForKelly.type === 'miss' && streakForKelly.streak >= 3;
-  const cvForKelly = meanFiltered > 0 ? stdev(values) / meanFiltered : 0;
-
-  // Use the no-vig probability for Kelly when available (more accurate)
-  const probForKelly = finalProb;
-  // The odds we collect ARE the offered odds (not adjusted)
-  const k = kelly(probForKelly, odd);
-
-  // Confidence multiplier
-  const confResult = computeConfidence({
-    modelSpread,
-    sampleN: N,
-    trend: trendForKelly,
-    side,
-    bimodal: bimodalForKelly,
-    streakAgainst: streakAgainstKelly,
-    cv: cvForKelly,
-  });
-
-  // Final stake: confidence × kelly × kellyFrac, capped at 2.5% bankroll
-  const baseStakeFrac = k * STATE.settings.kellyFrac;
-  const stakeResult = computeFinalStake(baseStakeFrac, confResult.confidence, STATE.settings.bankroll, 0.025);
-  const kFrac = stakeResult.finalFraction;
-  const stakeUnits = stakeResult.stakeUnits;
-  // For UI display: keep raw and adjusted values for transparency
-  const kRaw = k;                        // Full Kelly
-  const kQuarter = baseStakeFrac;        // Quarter Kelly (or whatever kellyFrac is set)
-  const kAdjusted = stakeResult.adjustedKelly; // Quarter Kelly × confidence
-  const wasCapped = stakeResult.wasCapped;
+  const edge = finalProb - impl;
+  const k = kelly(finalProb, odd);
+  const kFrac = k * STATE.settings.kellyFrac;
+  const stakeUnits = kFrac * STATE.settings.bankroll;
 
   // Decision
   const tBet = STATE.settings.thrBet / 100;
   const tLean = STATE.settings.thrLean / 100;
   let decision = 'pass', decClass = 'pass', decisionMsg = '';
-  const edgeLabel = vigData ? 'edge (no-vig)' : 'edge';
   if (edge >= tBet) {
     decision = `bet ${side}`;
     decClass = side === 'over' ? 'over' : 'under';
-    decisionMsg = `${edgeLabel.toUpperCase()} ${pct(edge)} (model ${pct(finalProb)} vs ${vigData ? 'fair' : 'implied'} ${pct(vigData ? fairProb : impl)}). EV +${pct(ev,2)} per unit. Above ${STATE.settings.thrBet}% threshold. Confidence ${pct(confResult.confidence,0)} → stake ${fmt(stakeUnits,2)} units (${pct(kFrac,1)} of bankroll)${wasCapped ? ' [CAPPED at 2.5%]' : ''}.`;
+    decisionMsg = `Edge ${pct(edge)} (model ${pct(finalProb)} vs implied ${pct(impl)}). EV +${pct(ev,2)} per unit. Above ${STATE.settings.thrBet}% threshold. Kelly stake: ${fmt(stakeUnits,2)} units (${pct(kFrac)} of bankroll).`;
   } else if (edge >= tLean) {
     decision = `lean ${side}`;
-    decisionMsg = `Marginal ${edgeLabel} ${pct(edge)}. EV ${(ev>=0?'+':'')}${pct(ev,2)}. Below BET threshold.`;
+    decisionMsg = `Marginal edge ${pct(edge)}. EV ${(ev>=0?'+':'')}${pct(ev,2)}. Below BET threshold.`;
   } else if (edge >= -tLean) {
     decision = 'pass';
-    decisionMsg = `Model ${pct(finalProb)} vs ${vigData ? 'fair' : 'implied'} ${pct(vigData ? fairProb : impl)} = no edge. Pass.`;
+    decisionMsg = `Model ${pct(finalProb)} vs implied ${pct(impl)} = no edge. Pass.`;
   } else if (edge >= -tBet) {
     decision = 'lean other side';
-    decisionMsg = `Model gives ${pct(finalProb)}. Other side has +${pct(-edge)} ${edgeLabel}. Marginal.`;
+    decisionMsg = `Model gives ${pct(finalProb)}. Other side has +${pct(-edge)} edge. Marginal.`;
   } else {
     decision = `fade — bet ${side==='over'?'under':'over'}`;
     decClass = side === 'over' ? 'under' : 'over';
-    decisionMsg = `Model only ${pct(finalProb)} vs ${vigData ? 'fair' : 'implied'} ${pct(vigData ? fairProb : impl)}. Other side has +${pct(-edge)} ${edgeLabel}.`;
+    decisionMsg = `Model only ${pct(finalProb)} vs implied ${pct(impl)}. Other side has +${pct(-edge)} edge.`;
   }
 
   // Signals
   const signals = [];
-
-  // v11: Vig signals
-  if (vigData) {
-    const vigClass = classifyVig(vigData.vig);
-    signals.push({ type: vigClass.color, txt: `Vig ${pct(vigData.vig,1)} (${vigClass.label})` });
-    if (vigData.asymmetric) {
-      signals.push({ type: 'warn', txt: `Vig asimétrico — possível trap line` });
-    }
-  } else {
-    signals.push({ type: 'info', txt: `💡 Informa odd oposta pra edge mais preciso` });
-  }
-
-  // v11: Confidence signal
-  if (confResult.confidence < 0.6) {
-    signals.push({ type: 'bad', txt: `Confiança ${pct(confResult.confidence,0)} — sinais conflitam` });
-  } else if (confResult.confidence < 0.8) {
-    signals.push({ type: 'warn', txt: `Confiança ${pct(confResult.confidence,0)} — alguns sinais incertos` });
-  } else {
-    signals.push({ type: 'good', txt: `Confiança ${pct(confResult.confidence,0)} — sinais alinhados` });
-  }
-
-  // v11: Capped Kelly warning
-  if (wasCapped) {
-    signals.push({ type: 'info', txt: `Stake capped at 2.5% (Kelly seria ${pct(kAdjusted,1)})` });
-  }
-
   if (N < STATE.settings.minSample) signals.push({ type:'warn', txt:`Small sample (N=${N}, recommend ${STATE.settings.minSample}+)` });
   const last5Min = avg(minutes.slice(0, Math.min(5, N)));
   const allMin = avg(minutes);
@@ -3026,7 +2775,7 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
       else if (usgDelta > 2) signals.push({ type:'good', txt:`USG% ↑ +${fmt(usgDelta,1)} L5 (${fmt(usgRecent,1)}%)` });
     }
   }
-  // v11: modelSpread já declarado acima pra Kelly — só usa aqui
+  const modelSpread = Math.max(empProb, poisProb, bayesProb) - Math.min(empProb, poisProb, bayesProb);
   if (modelSpread > 0.10) signals.push({ type:'warn', txt:`Models disagree (${pct(modelSpread)})` });
   else if (modelSpread < 0.04) signals.push({ type:'good', txt:`Models agree (${pct(modelSpread)})` });
 
@@ -3084,20 +2833,10 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   };
   STATE.lastAnalysis = {
     player: STATE.player, stat, side, line, odd,
-    oddOpposite, // v11
     finalProb, empProb, poisProb, bayesProb, impl, edge, ev, decision,
     seasons, filters, N, kelly: kFrac, stakeUnits, predMean, postMean,
     allBlendProbs, // for model selection tracking
-    // v11 fields
-    vigData, fairProb, edgeVsImplied, edgeVsFair,
-    confidence: confResult.confidence,
-    confReasons: confResult.reasons,
-    kRaw, kQuarter, kAdjusted, wasCapped,
   };
-  // v11: also track as "pending" (will be auto-skipped if user starts another analysis)
-  STATE.pendingAnalysis = { ...STATE.lastAnalysis, activeBlend: STATE.settings.modelBlend };
-  // Persist pendingAnalysis to localStorage so it survives page reload
-  try { localStorage.setItem('bdl_pending_analysis', JSON.stringify(STATE.pendingAnalysis)); } catch(e) {}
   const vCls = v => v > 0.05 ? 'v-good' : v < -0.05 ? 'v-bad' : 'v-neutral';
   const hits = values.map(v => side === 'over' ? v > line : v < line);
   const overallRate = hits.filter(Boolean).length / N;
@@ -3110,47 +2849,24 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
         <div class="sub">blend: ${STATE.settings.modelBlend} · N=${N} ${tip('sample')}</div>
       </div>
       <div class="verdict-cell">
-        <div class="lbl">${vigData ? `Fair Prob (no-vig) ${tip('fair_prob')}` : `Implied (Odd ${fmt(odd,2)}) ${tip('implied')}`}</div>
-        <div class="val">${pct(vigData ? fairProb : impl, 1)}</div>
-        <div class="sub">${vigData ? `vig ${pct(vigData.vig,1)}${vigData.asymmetric ? ' · ASYM' : ''} · odd opp ${fmt(oddOpposite,2)}` : '1 / decimal odd'}</div>
+        <div class="lbl">Implied (Odd ${fmt(odd,2)}) ${tip('implied')}</div>
+        <div class="val">${pct(impl,1)}</div>
+        <div class="sub">1 / decimal odd</div>
       </div>
       <div class="verdict-cell">
-        <div class="lbl">${vigData ? 'Edge (no-vig)' : 'Edge & EV'} ${tip('edge')}</div>
+        <div class="lbl">Edge & EV ${tip('edge')}</div>
         <div class="val ${vCls(edge)}">${edge>=0?'+':''}${pct(edge,1)}</div>
-        <div class="sub ${vCls(ev)}">EV ${ev>=0?'+':''}${pct(ev,2)}/unit ${tip('ev')}${vigData ? ` · vs impl ${pct(edgeVsImplied,1)}` : ''}</div>
+        <div class="sub ${vCls(ev)}">EV ${ev>=0?'+':''}${pct(ev,2)}/unit ${tip('ev')}</div>
       </div>
     </div>
-
-    <!-- v11: Confidence bar -->
-    <div class="confidence-bar-container">
-      <div class="confidence-bar-label">
-        <span>CONFIDENCE</span>
-        <span style="font-weight:700; color: ${confResult.confidence >= 0.8 ? 'var(--green)' : confResult.confidence >= 0.6 ? 'var(--yellow)' : 'var(--red)'}">${pct(confResult.confidence, 0)}</span>
-      </div>
-      <div class="confidence-bar-track">
-        <div class="confidence-bar-fill" style="width: ${confResult.confidence * 100}%; background: ${confResult.confidence >= 0.8 ? 'var(--green)' : confResult.confidence >= 0.6 ? 'var(--yellow)' : 'var(--red)'};"></div>
-      </div>
-      ${confResult.reasons.length > 0 ? `<div class="confidence-bar-reasons">${confResult.reasons.map(r => `<span class="conf-reason conf-${r.severity}">${r.txt}</span>`).join('')}</div>` : `<div class="confidence-bar-reasons"><span class="conf-reason conf-good">Todos os sinais alinhados</span></div>`}
-    </div>
-
-    <!-- v11: 3 models always visible -->
-    <div class="models-grid" style="margin-top: 12px;">
-      <div class="model-cell"><div class="lbl">Empirical Hit-Rate ${tip('empirical')}</div><div class="v">${pct(empProb,1)}</div><div class="sub">weighted L5×${wRecent}</div></div>
-      <div class="model-cell"><div class="lbl">${(NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'Normal' : (useNB?'NegBinomial':'Poisson')} ${tip((NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'normal' : (useNB?'negbinom':'poisson'))}</div><div class="v">${pct(poisProb,1)}</div><div class="sub">μ=${fmt(predMean,1)} σ²=${fmt(varFiltered,1)}${oppData?' · adj':''}</div></div>
-      <div class="model-cell"><div class="lbl">Bayesian ${tip('bayesian')}</div><div class="v">${pct(bayesProb,1)}</div><div class="sub">posterior μ=${fmt(postMean,1)}</div></div>
-    </div>
-
     <div class="recommendation bet-${decClass}">
       <div class="head">[Verdict] ${decision.toUpperCase()} ${decision.startsWith('bet')||decision.startsWith('lean ')?line:''}</div>
       <div class="body">${decisionMsg}</div>
       <div class="kelly-box">
-        <div class="k-cell"><div class="lbl">Full Kelly ${tip('kelly')}</div><div class="v">${pct(kRaw,2)}</div></div>
-        <div class="k-cell"><div class="lbl">${pct(STATE.settings.kellyFrac)} Kelly</div><div class="v">${pct(kQuarter,2)}</div></div>
-        <div class="k-cell"><div class="lbl">×Confidence</div><div class="v" style="color:${confResult.confidence >= 0.8 ? 'var(--green)' : confResult.confidence >= 0.6 ? 'var(--yellow)' : 'var(--red)'}">${pct(kAdjusted,2)}</div></div>
-        <div class="k-cell"><div class="lbl">${wasCapped ? 'Stake (CAPPED)' : 'Stake'} ${tip('confidence_kelly')}</div><div class="v" style="color:var(--accent);">${fmt(stakeUnits,2)} u</div></div>
+        <div class="k-cell"><div class="lbl">Full Kelly ${tip('kelly')}</div><div class="v">${pct(k,2)}</div></div>
+        <div class="k-cell"><div class="lbl">${pct(STATE.settings.kellyFrac)} Kelly</div><div class="v">${pct(kFrac,2)}</div></div>
+        <div class="k-cell"><div class="lbl">Stake</div><div class="v">${fmt(stakeUnits,2)} u</div></div>
       </div>
-      ${wasCapped ? `<div style="font-size:11px; color:var(--yellow); padding: 8px 14px; border-top: 1px solid rgba(251,191,36,0.3);">⚠️ Kelly ajustado seria ${pct(kAdjusted,1)} mas foi capeado em 2.5% do bankroll por segurança.</div>` : ''}
-      ${confResult.confidence < 0.6 && (decision === 'bet over' || decision === 'bet under') ? `<div style="font-size:12px; color:var(--red); padding: 10px 14px; border-top: 1px solid rgba(248,113,113,0.3); background: rgba(248,113,113,0.05);">🚨 <strong>Apesar do edge positivo, a confiança é baixa (${pct(confResult.confidence,0)}).</strong> Os sinais conflitam: ${confResult.reasons.filter(r=>r.severity==='high').map(r=>r.txt).join(' · ')}. Considera passar ou apostar com stake reduzido.</div>` : ''}
       <div class="actions">
         <button class="primary" id="log-bet-btn">Log this bet</button>
         <button class="ghost" id="log-skip-btn">Log as skipped</button>
@@ -3168,6 +2884,16 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
       predMean, postMean, useNB,
       values, // v10 fix
     })}
+    <details>
+      <summary>▸ Model Breakdown · 3 estimators ${tip('edge_blend')}</summary>
+      <div class="details-body">
+        <div class="models-grid">
+          <div class="model-cell"><div class="lbl">Empirical Hit-Rate ${tip('empirical')}</div><div class="v">${pct(empProb,1)}</div><div class="sub">weighted L5×${wRecent}</div></div>
+          <div class="model-cell"><div class="lbl">${(NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'Normal' : (useNB?'NegBinomial':'Poisson')} ${tip((NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'normal' : (useNB?'negbinom':'poisson'))}</div><div class="v">${pct(poisProb,1)}</div><div class="sub">μ=${fmt(predMean,1)} σ²=${fmt(varFiltered,1)}${oppData?' · adj':''}</div></div>
+          <div class="model-cell"><div class="lbl">Bayesian ${tip('bayesian')}</div><div class="v">${pct(bayesProb,1)}</div><div class="sub">posterior μ=${fmt(postMean,1)}</div></div>
+        </div>
+      </div>
+    </details>
     <div class="metrics-grid" style="margin-top:14px;">
       <div class="metric"><div class="lbl">Avg ${STAT_LABELS[stat]}</div><div class="val">${fmt(meanFiltered,1)}</div><div class="delta">σ=${fmt(stdev(values),1)} ${tip('cv')}</div></div>
       <div class="metric"><div class="lbl">Last 5</div><div class="val">${fmt(last5Avg,1)}</div><div class="delta ${last5Avg>=meanFiltered?'up':'down'}">${last5Avg>=meanFiltered?'+':''}${fmt(last5Avg-meanFiltered,1)}</div></div>
@@ -3276,105 +3002,12 @@ $('#injury-team-filter').addEventListener('change', renderInjuries);
 $('#injury-status-filter').addEventListener('change', renderInjuries);
 
 // === TRACKER ===
-// v12: Duplicate detection system
-// Fingerprint = unique signature of a bet/analysis. Same fingerprint within 24h = duplicate.
-const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
-
-function betFingerprint(b) {
-  // Use what makes a bet uniquely identifiable: player + stat + side + line
-  // Note: we don't include the odd in the fingerprint because the same prop with different odds
-  // (line shopping different books) should still be considered the same bet for tracking purposes.
-  return `${b.playerId}::${b.stat}::${b.side}::${b.line}`;
-}
-
-function analysisFingerprint(a) {
-  return `${a.player.id}::${a.stat}::${a.side}::${a.line}`;
-}
-
-// Find existing bet/skip with same fingerprint within the duplicate window
-// Returns: { existing, isOlder } | null
-function findDuplicate(fingerprint, action='bet') {
-  const now = Date.now();
-  // Sort bets by timestamp descending (most recent first)
-  const candidates = STATE.bets
-    .filter(b => betFingerprint(b) === fingerprint)
-    .map(b => ({ ...b, _ageMs: now - new Date(b.timestamp).getTime() }))
-    .filter(b => b._ageMs < DUPLICATE_WINDOW_MS)
-    .sort((x, y) => x._ageMs - y._ageMs);
-
-  if (!candidates.length) return null;
-  return { existing: candidates[0], all: candidates };
-}
-
-// Pretty-print age difference
-function fmtAge(ms) {
-  const min = Math.floor(ms / 60000);
-  if (min < 1) return 'agora mesmo';
-  if (min < 60) return `${min}min atrás`;
-  const hr = Math.floor(min / 60);
-  const remMin = min % 60;
-  if (hr < 24) return `${hr}h${remMin > 0 ? remMin + 'min' : ''} atrás`;
-  return `${Math.floor(hr / 24)}d atrás`;
-}
-
 function logBet(action) {
   if (!STATE.lastAnalysis) return;
   const a = STATE.lastAnalysis;
-
-  // v12: Duplicate detection
-  const fp = analysisFingerprint(a);
-  const dup = findDuplicate(fp, action);
-
-  if (dup) {
-    const existing = dup.existing;
-    const age = fmtAge(existing._ageMs);
-
-    if (action === 'bet') {
-      // Case 1: user clicking Log this bet, but there's already a bet/skip with same fingerprint
-      if (existing.action === 'bet' && existing.status === 'pending') {
-        // Already logged as bet — ask if replace, add stake, or cancel
-        const choice = prompt(
-          `⚠️ Tu já logou uma bet IGUAL ${age}:\n` +
-          `${existing.player} ${existing.side.toUpperCase()} ${existing.line} ${existing.stat.toUpperCase()} @ ${existing.odd} · stake ${fmt(existing.stake,2)}u\n\n` +
-          `Opções:\n` +
-          `  1 = SUBSTITUIR (atualiza a bet existente com a nova análise)\n` +
-          `  2 = ADICIONAR (loga outra bet — útil se tu apostou em outra casa)\n` +
-          `  3 = CANCELAR\n\n` +
-          `Digite 1, 2 ou 3:`, '1'
-        );
-        if (!choice || choice === '3') return;
-        if (choice === '1') {
-          // Replace: remove old, fall through to create new
-          STATE.bets = STATE.bets.filter(b => b.id !== existing.id);
-          // (continues to create new bet below)
-        } else if (choice === '2') {
-          // Add: fall through (creates duplicate intentionally)
-        } else return;
-      } else if (existing.action === 'skipped' || existing.action === 'lean') {
-        // Old skip exists — silently remove it and replace with the bet
-        STATE.bets = STATE.bets.filter(b => b.id !== existing.id);
-        // Continue to create new bet
-      }
-    } else if (action === 'skipped') {
-      // Case 2: user clicking Log as skipped (manual)
-      if (existing.action === 'bet') {
-        // Bet exists — skip is meaningless, ignore
-        alert(`Já tem uma bet logada igual ${age}. Skip ignorado pra não poluir o tracking.`);
-        STATE.pendingAnalysis = null;
-        try { localStorage.removeItem('bdl_pending_analysis'); } catch(e) {}
-        return;
-      }
-      if (existing.action === 'skipped') {
-        // Replace old skip with new one (silent update)
-        STATE.bets = STATE.bets.filter(b => b.id !== existing.id);
-        // Continue to create new skip
-      }
-    }
-  }
-
   let stake = 0;
   if (action === 'bet') {
-    const inp = prompt(`Stake (units). Suggested by Kelly+Confidence: ${fmt(a.stakeUnits,2)}${a.wasCapped ? ' (CAPPED at 2.5%)' : ''}`, fmt(a.stakeUnits, 2));
+    const inp = prompt(`Stake (units). Suggested by Kelly: ${fmt(a.stakeUnits,2)}`, fmt(a.stakeUnits, 2));
     stake = parseFloat(inp);
     if (isNaN(stake) || stake <= 0) return;
   }
@@ -3384,80 +3017,17 @@ function logBet(action) {
     id: 'bet_' + Date.now(), timestamp: new Date().toISOString(), action,
     player: `${a.player.first_name} ${a.player.last_name}`, playerId: a.player.id,
     stat: a.stat, side: a.side, line: a.line, odd: a.odd,
-    oddOpposite: a.oddOpposite || null,
     closingOdd, stake, modelProb: a.finalProb, impliedProb: a.impl,
-    fairProb: a.fairProb || null,
-    edge: a.edge, edgeVsImplied: a.edgeVsImplied, edgeVsFair: a.edgeVsFair,
-    vig: a.vigData ? a.vigData.vig : null,
-    confidence: a.confidence || null,
-    ev: a.ev, decision: a.decision, N: a.N, kelly: a.kelly,
+    edge: a.edge, ev: a.ev, decision: a.decision, N: a.N, kelly: a.kelly,
     status: 'pending',
+    // Model selection: save all 4 blend predictions
     allBlendProbs: a.allBlendProbs || null,
     activeBlend: STATE.settings.modelBlend,
   };
   STATE.bets.push(bet);
   saveBets();
-  STATE.pendingAnalysis = null;
-  try { localStorage.removeItem('bdl_pending_analysis'); } catch(e) {}
-  if (action === 'bet') alert('Bet logged.');
-  else alert('Skip logged.');
+  alert(action === 'bet' ? 'Logged.' : 'Skip logged.');
   renderTrackerBadge();
-}
-
-// v11+v12: Auto-skip — when a new analysis starts but the previous one was never logged
-function maybeAutoSkipPrevious() {
-  if (!STATE.pendingAnalysis) return;
-  const a = STATE.pendingAnalysis;
-  // Only auto-skip if it had a recommendation (bet/lean) — pass/fade don't need tracking
-  if (!a.decision || a.decision === 'pass') {
-    STATE.pendingAnalysis = null;
-    try { localStorage.removeItem('bdl_pending_analysis'); } catch(e) {}
-    return;
-  }
-
-  // v12: Duplicate detection for auto-skip
-  const fp = analysisFingerprint(a);
-  const dup = findDuplicate(fp);
-  if (dup) {
-    const existing = dup.existing;
-    if (existing.action === 'bet') {
-      // Already bet — don't auto-skip, just clear pending
-      console.log('Auto-skip aborted: existing bet found for', a.player.first_name, a.player.last_name);
-      STATE.pendingAnalysis = null;
-      try { localStorage.removeItem('bdl_pending_analysis'); } catch(e) {}
-      return;
-    }
-    if (existing.action === 'skipped') {
-      // Already skipped — replace silently with newer one (updated metrics)
-      STATE.bets = STATE.bets.filter(b => b.id !== existing.id);
-    }
-  }
-
-  // Register as automatic skip
-  const bet = {
-    id: 'bet_' + Date.now(),
-    timestamp: new Date().toISOString(),
-    action: 'skipped',
-    autoSkipped: true,
-    player: `${a.player.first_name} ${a.player.last_name}`, playerId: a.player.id,
-    stat: a.stat, side: a.side, line: a.line, odd: a.odd,
-    oddOpposite: a.oddOpposite || null,
-    closingOdd: null, stake: 0, modelProb: a.finalProb, impliedProb: a.impl,
-    fairProb: a.fairProb || null,
-    edge: a.edge, edgeVsImplied: a.edgeVsImplied, edgeVsFair: a.edgeVsFair,
-    vig: a.vigData ? a.vigData.vig : null,
-    confidence: a.confidence || null,
-    ev: a.ev, decision: a.decision, N: a.N, kelly: a.kelly,
-    status: 'pending',
-    allBlendProbs: a.allBlendProbs || null,
-    activeBlend: a.activeBlend || STATE.settings.modelBlend,
-  };
-  STATE.bets.push(bet);
-  saveBets();
-  STATE.pendingAnalysis = null;
-  try { localStorage.removeItem('bdl_pending_analysis'); } catch(e) {}
-  renderTrackerBadge();
-  console.log('Auto-skipped previous analysis:', bet.player, bet.stat, bet.side, bet.line);
 }
 function saveBets() {
   localStorage.setItem('bdl_bets', JSON.stringify(STATE.bets));
@@ -3468,53 +3038,6 @@ function renderTrackerBadge() {
   $('#tracker-badge').textContent = pending || STATE.bets.filter(b=>b.action==='bet').length;
 }
 renderTrackerBadge();
-
-// v11: On app boot, if there's a pending analysis from a previous session, auto-skip it
-if (STATE.pendingAnalysis) {
-  setTimeout(() => maybeAutoSkipPrevious(), 1000);
-}
-
-// v12: Cleanup retroactive duplicates on boot
-// Keeps the most recent of each fingerprint within 24h window
-// Priority: bet > skip (always prefer a bet over a skip for same fingerprint)
-function cleanupDuplicateBets() {
-  const groups = {};
-  const now = Date.now();
-  for (const b of STATE.bets) {
-    const fp = betFingerprint(b);
-    const age = now - new Date(b.timestamp).getTime();
-    if (age > DUPLICATE_WINDOW_MS) continue; // only deduplicate within window
-    if (!groups[fp]) groups[fp] = [];
-    groups[fp].push(b);
-  }
-  let removed = 0;
-  for (const fp of Object.keys(groups)) {
-    if (groups[fp].length <= 1) continue;
-    // Sort: bets first, then most recent
-    groups[fp].sort((a, b) => {
-      if (a.action === 'bet' && b.action !== 'bet') return -1;
-      if (a.action !== 'bet' && b.action === 'bet') return 1;
-      return new Date(b.timestamp) - new Date(a.timestamp);
-    });
-    // Keep first, mark rest for removal
-    const toKeep = groups[fp][0].id;
-    for (let i = 1; i < groups[fp].length; i++) {
-      const dupId = groups[fp][i].id;
-      STATE.bets = STATE.bets.filter(b => b.id !== dupId);
-      removed++;
-    }
-  }
-  if (removed > 0) {
-    saveBets();
-    console.log(`Cleanup: removed ${removed} duplicate bet${removed > 1 ? 's' : ''}.`);
-    renderTrackerBadge();
-  }
-  return removed;
-}
-
-// Run cleanup on boot
-cleanupDuplicateBets();
-
 function renderTracker() {
   const bets = STATE.bets.filter(b => b.action === 'bet');
   const settled = bets.filter(b => b.status === 'win' || b.status === 'loss');
@@ -3593,19 +3116,6 @@ $('#clear-bets').addEventListener('click', () => {
   if (!confirm('Delete ALL bets?')) return;
   STATE.bets = []; saveBets(); renderTracker(); renderTrackerBadge();
 });
-// v12: Manual dedupe button
-const dedupeBtn = document.getElementById('dedupe-bets');
-if (dedupeBtn) {
-  dedupeBtn.addEventListener('click', () => {
-    const removed = cleanupDuplicateBets();
-    if (removed > 0) {
-      alert(`${removed} duplicata${removed > 1 ? 's' : ''} removida${removed > 1 ? 's' : ''}.`);
-      renderTracker();
-    } else {
-      alert('Sem duplicatas. Tracking limpo.');
-    }
-  });
-}
 
 // === SETTINGS ===
 function loadSettingsToUI() {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v9 // NBA · Advanced Modeling</title>
+<title>PROP TERMINAL v10 // NBA · Optimized API Layer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -772,7 +772,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v9 · Advanced Modeling · Trend · Clusters · Pace v2</span>
+      <span class="tag">v10 · Token Bucket · Stratified Cache · Batched Requests</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1423,10 +1423,18 @@
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2><span class="num">[S3]</span> Cache</h2></div>
+      <div class="panel-head"><h2><span class="num">[S3]</span> API & Cache</h2></div>
       <div class="panel-body">
-        <div style="font-size:12px; color:var(--ink-dim); margin-bottom:10px;">Cached 6h to save API calls.</div>
-        <div id="cache-info" style="font-size:11px; color:var(--ink-faint); margin-bottom:10px;"></div>
+        <div style="margin-bottom: 14px;">
+          <label>BalldontLie Plan <span class="tip" data-tip="Define o rate limit do token bucket. Free=5/min, ALL-STAR=60/min, GOAT=600/min. Se tu não souber, mantém ALL-STAR (já que tu paga).">?</span></label>
+          <select id="api-plan" style="margin-top: 4px;">
+            <option value="5">Free (5 req/min)</option>
+            <option value="60" selected>ALL-STAR (60 req/min)</option>
+            <option value="600">GOAT (600 req/min)</option>
+          </select>
+        </div>
+        <div style="font-size:12px; color:var(--ink-dim); margin-bottom:10px;">Cache stratificado: teams 30d · players 7d · stats antigos 30d · recentes 1h · injuries 15min · odds 5min.</div>
+        <div id="cache-info" style="font-size:11px; color:var(--ink-faint); margin-bottom:10px; line-height: 1.7;"></div>
         <button class="danger" id="clear-cache" style="width:auto; padding:6px 14px; font-size:11px;">Clear Cache</button>
       </div>
     </section>
@@ -1533,6 +1541,7 @@ const TIPS = {
   hitRate: 'Hit Rate: % dos jogos (filtrados) onde o jogador bateu a linha do lado escolhido. Dado bruto, sem ajustes.',
   models_agree: 'Quando os 3 modelos (Empirical, Distribution, Bayesian) dão probabilidades similares (spread <4%), confiança alta. Spread >10% = modelos discordam, sinal fraco.',
   brier: 'Brier Score = média de (probabilidade prevista - resultado real)². Mede calibração. Score 0 = perfeito. 0.25 = chute aleatório. Quanto MENOR, melhor. Usado pra comparar qualidade dos modelos de forma estatística rigorosa.',
+  normal: 'Modelo Normal: assume distribuição Gaussiana (Lei dos Grandes Números aplicada às possessions). Usado pra stats de alta contagem (pontos, rebotes, assistências) onde Poisson seria muito aproximado. Melhor calibração que Poisson/NegBinomial pra esses stats.',
 };
 
 function tip(key) {
@@ -1600,12 +1609,41 @@ function negBinomCDF(k, mean, variance) {
   for (let i=0; i<=k; i++) s += negBinomPMF(i, n, p);
   return Math.min(1, s);
 }
-function probOver(line, mean, variance, useNB=true) {
+
+// v10: Normal CDF using Abramowitz-Stegun approximation
+function normalCDF(x, mean, sd) {
+  if (sd <= 0) return x < mean ? 0 : 1;
+  const z = (x - mean) / sd;
+  // Standard normal CDF approximation
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp(-z * z / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - p : p;
+}
+
+// v10: Stats with high counts (PTS, REB, AST, PRA, etc) follow approximately Normal distribution
+// due to Central Limit Theorem applied across possessions. NegBinom/Poisson are discrete approximations
+// that work poorly for these. Use Normal for high-mean stats, NegBinom/Poisson for low-mean discrete stats.
+const NORMAL_DIST_STATS = new Set(['pts', 'reb', 'ast', 'pra', 'pr', 'pa', 'ra', 'min']);
+
+function probOver(line, mean, variance, useNB=true, statName=null) {
+  // v10: Use Normal for high-mean continuous-like stats
+  if (statName && NORMAL_DIST_STATS.has(statName) && mean >= 5) {
+    const sd = Math.sqrt(Math.max(variance, 0.01));
+    // For continuous, use line itself (not floor); use continuity correction (line + 0.5)
+    // But since odds are typically on .5 lines, line is already half-integer — no correction needed
+    return 1 - normalCDF(line, mean, sd);
+  }
   const k = Math.floor(line);
   if (useNB && variance > mean * 1.05) return 1 - negBinomCDF(k, mean, variance);
   return 1 - poissonCDF(k, mean);
 }
-function probUnder(line, mean, variance, useNB=true) {
+
+function probUnder(line, mean, variance, useNB=true, statName=null) {
+  if (statName && NORMAL_DIST_STATS.has(statName) && mean >= 5) {
+    const sd = Math.sqrt(Math.max(variance, 0.01));
+    return normalCDF(line, mean, sd);
+  }
   const k = Math.floor(line);
   if (useNB && variance > mean * 1.05) return negBinomCDF(k, mean, variance);
   return poissonCDF(k, mean);
@@ -1616,45 +1654,200 @@ function kelly(p, odd) {
   return Math.max(0, f);
 }
 
-// === API ===
+// === API LAYER v10: Token Bucket + In-Flight Dedupe + Stratified Cache ===
+
+// Stratified TTL by endpoint type (in ms)
+const CACHE_TTL = {
+  teams: 30 * 24 * 60 * 60 * 1000,        // 30 days — teams almost never change
+  players: 7 * 24 * 60 * 60 * 1000,       // 7 days — player info stable mid-season
+  stats_old: 30 * 24 * 60 * 60 * 1000,    // 30 days — old games immutable
+  stats_recent: 60 * 60 * 1000,           // 1 hour — recent games may get corrections
+  games: 6 * 60 * 60 * 1000,              // 6 hours
+  season_averages: 6 * 60 * 60 * 1000,    // 6 hours
+  injuries: 15 * 60 * 1000,               // 15 min
+  odds: 5 * 60 * 1000,                    // 5 min — live data
+  default: 6 * 60 * 60 * 1000,            // fallback
+};
+
+function getTTLForRequest(path, data) {
+  if (path.includes('/teams')) return CACHE_TTL.teams;
+  if (path.includes('/players')) return CACHE_TTL.players;
+  if (path.includes('/games')) return CACHE_TTL.games;
+  if (path.includes('/season_averages')) return CACHE_TTL.season_averages;
+  if (path.includes('/player_injuries')) return CACHE_TTL.injuries;
+  if (path.includes('/odds')) return CACHE_TTL.odds;
+  if (path.includes('/stats')) {
+    // Inspect data to determine if old or recent
+    if (data && data.data && data.data.length > 0) {
+      const sampleDate = data.data[0]?.game?.date;
+      if (sampleDate) {
+        const ageMs = Date.now() - new Date(sampleDate).getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return ageMs > sevenDaysMs ? CACHE_TTL.stats_old : CACHE_TTL.stats_recent;
+      }
+    }
+    return CACHE_TTL.stats_recent;
+  }
+  return CACHE_TTL.default;
+}
+
+// === TOKEN BUCKET RATE LIMITER ===
+// ALL-STAR plan: 60 req/min. Free: 5/min.
+// We pick the smaller default and let it auto-detect.
+const RateLimiter = {
+  capacity: 50,           // start with 50 conservative; will adjust
+  tokens: 50,
+  refillRate: 0.83,       // 50 tokens/min = 0.83/sec → fits ALL-STAR (60/min) safely
+  lastRefill: Date.now(),
+  waiters: [],
+
+  refill() {
+    const now = Date.now();
+    const elapsedSec = (now - this.lastRefill) / 1000;
+    const tokensToAdd = elapsedSec * this.refillRate;
+    this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+    // Process waiters
+    while (this.waiters.length > 0 && this.tokens >= 1) {
+      const resolve = this.waiters.shift();
+      this.tokens -= 1;
+      resolve();
+    }
+  },
+
+  async acquire() {
+    this.refill();
+    if (this.tokens >= 1) {
+      this.tokens -= 1;
+      return Promise.resolve();
+    }
+    // Wait for a token
+    return new Promise((resolve) => {
+      this.waiters.push(resolve);
+      // Auto-refill periodically
+      setTimeout(() => this.refill(), 500);
+    });
+  },
+
+  setRate(tokensPerMin) {
+    this.refillRate = tokensPerMin / 60;
+    this.capacity = Math.max(10, Math.floor(tokensPerMin * 0.8));
+  },
+
+  status() {
+    this.refill();
+    return { tokens: Math.floor(this.tokens), waiters: this.waiters.length, capacity: this.capacity, perMin: Math.round(this.refillRate * 60) };
+  }
+};
+
+// Auto-refill every 1 sec so waiters don't starve
+setInterval(() => RateLimiter.refill(), 1000);
+
+// === IN-FLIGHT REQUEST DEDUPLICATION ===
+// If 2 callers request the same URL at the same time, do only 1 fetch.
+const inFlight = new Map();
+
+// === MAIN FETCH FUNCTION ===
 async function bdlFetch(path, params={}, useCache=true) {
   if (!STATE.apiKey) throw new Error('no api key — set in Settings tab');
+
+  // Build URL with per_page=100 default for paginated endpoints
   const url = new URL(API_BASE + path);
+  // Default per_page=100 if pagination supported (max allowed by API)
+  if (!params.per_page && (path.includes('/stats') || path.includes('/players') || path.includes('/games') || path.includes('/teams') || path.includes('/season_averages') || path.includes('/player_injuries'))) {
+    params.per_page = 100;
+  }
   for (const [k,v] of Object.entries(params)) {
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
     else if (v !== undefined && v !== null) url.searchParams.set(k, v);
   }
   const cacheKey = url.toString();
+
+  // Check cache with stratified TTL
   if (useCache && STATE.cache[cacheKey]) {
     const c = STATE.cache[cacheKey];
-    if (Date.now() - c.t < CACHE_TTL_MS) return c.d;
+    const ttl = c.ttl || getTTLForRequest(path, c.d);
+    if (Date.now() - c.t < ttl) return c.d;
   }
-  const res = await fetch(url, { headers: { 'Authorization': STATE.apiKey } });
-  if (res.status === 429) {
-    await sleep(13000);
-    return bdlFetch(path, params, useCache);
+
+  // In-flight dedupe
+  if (inFlight.has(cacheKey)) {
+    return inFlight.get(cacheKey);
   }
-  if (res.status === 401) {
-    throw new Error('HTTP 401: API key inválida OU teu plano não tem acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem plano ALL-STAR ($9.99/mês) ou GOAT. Vai em app.balldontlie.io pra fazer upgrade.');
-  }
-  if (res.status === 403) {
-    throw new Error('HTTP 403: Teu plano BalldontLie não dá acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem ALL-STAR ou GOAT.');
-  }
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>'');
-    throw new Error(`HTTP ${res.status}: ${txt.slice(0,200)}`);
-  }
-  const data = await res.json();
-  if (useCache) {
-    STATE.cache[cacheKey] = { t: Date.now(), d: data };
-    try { localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache)); }
-    catch(e) {
-      const keys = Object.keys(STATE.cache).sort((a,b) => STATE.cache[a].t - STATE.cache[b].t);
-      keys.slice(0, Math.floor(keys.length/2)).forEach(k => delete STATE.cache[k]);
-      try { localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache)); } catch(e2) { STATE.cache = {}; }
+
+  // Build the fetch promise
+  const fetchPromise = (async () => {
+    try {
+      // Acquire token before fetching
+      await RateLimiter.acquire();
+
+      const res = await fetch(url, { headers: { 'Authorization': STATE.apiKey } });
+
+      // Handle rate limit response: drop capacity and retry
+      if (res.status === 429) {
+        // API told us we hit the limit — be more conservative
+        RateLimiter.setRate(Math.max(5, RateLimiter.refillRate * 60 * 0.7));
+        await sleep(5000);
+        inFlight.delete(cacheKey); // allow retry as fresh request
+        return bdlFetch(path, params, useCache);
+      }
+      if (res.status === 401) {
+        throw new Error('HTTP 401: API key inválida OU teu plano não tem acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem plano ALL-STAR ($9.99/mês) ou GOAT. Vai em app.balldontlie.io pra fazer upgrade.');
+      }
+      if (res.status === 403) {
+        throw new Error('HTTP 403: Teu plano BalldontLie não dá acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem ALL-STAR ou GOAT.');
+      }
+      if (!res.ok) {
+        const txt = await res.text().catch(()=>'');
+        throw new Error(`HTTP ${res.status}: ${txt.slice(0,200)}`);
+      }
+      const data = await res.json();
+
+      // Cache with appropriate TTL
+      if (useCache) {
+        const ttl = getTTLForRequest(path, data);
+        STATE.cache[cacheKey] = { t: Date.now(), d: data, ttl };
+        persistCacheToStorage();
+      }
+      return data;
+    } finally {
+      // Remove from in-flight map
+      inFlight.delete(cacheKey);
     }
-  }
-  return data;
+  })();
+
+  inFlight.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+// === Persist cache + auto-cleanup if too large ===
+let pendingPersist = null;
+function persistCacheToStorage() {
+  // Debounce: only persist once per 2 sec
+  if (pendingPersist) return;
+  pendingPersist = setTimeout(() => {
+    pendingPersist = null;
+    try {
+      const json = JSON.stringify(STATE.cache);
+      // Auto-cleanup if cache > 4MB
+      if (json.length > 4 * 1024 * 1024) {
+        // Drop oldest 50% of entries
+        const keys = Object.keys(STATE.cache).sort((a,b) => STATE.cache[a].t - STATE.cache[b].t);
+        keys.slice(0, Math.floor(keys.length / 2)).forEach(k => delete STATE.cache[k]);
+        localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache));
+        console.warn('Cache cleanup: dropped 50% old entries');
+      } else {
+        localStorage.setItem('bdl_cache', json);
+      }
+    } catch(e) {
+      // QuotaExceededError → emergency dump
+      console.warn('Cache persist failed, dumping:', e.message);
+      const keys = Object.keys(STATE.cache).sort((a,b) => STATE.cache[a].t - STATE.cache[b].t);
+      keys.slice(0, Math.floor(keys.length / 2)).forEach(k => delete STATE.cache[k]);
+      try { localStorage.setItem('bdl_cache', JSON.stringify(STATE.cache)); }
+      catch(e2) { STATE.cache = {}; localStorage.removeItem('bdl_cache'); }
+    }
+  }, 2000);
 }
 
 // === AUTH ===
@@ -1834,21 +2027,20 @@ function hideProgress() {
 
 // === FETCH LOGS ===
 async function fetchGameLogsMulti(playerId, seasons) {
+  // v10: One single request with seasons[]=2024&seasons[]=2025... instead of N requests
+  // Paginate within that single request
+  showProgress(0.1, `fetching game logs (${seasons.length} season${seasons.length>1?'s':''})...`);
   let all = [];
-  let progress = 0;
-  for (const season of seasons) {
-    showProgress(progress / seasons.length, `fetching ${season}-${(season+1).toString().slice(-2)}...`);
-    let cursor = null;
-    for (let pg=0; pg<5; pg++) {
-      const params = { 'seasons[]': season, 'player_ids[]': playerId, per_page: 100 };
-      if (cursor) params.cursor = cursor;
-      const data = await bdlFetch('/stats', params);
-      if (!data.data || !data.data.length) break;
-      all = all.concat(data.data);
-      if (!data.meta || !data.meta.next_cursor) break;
-      cursor = data.meta.next_cursor;
-    }
-    progress++;
+  let cursor = null;
+  for (let pg = 0; pg < 10; pg++) {
+    const params = { 'seasons[]': seasons, 'player_ids[]': playerId, per_page: 100 };
+    if (cursor) params.cursor = cursor;
+    const data = await bdlFetch('/stats', params);
+    if (!data.data || !data.data.length) break;
+    all = all.concat(data.data);
+    if (!data.meta || !data.meta.next_cursor) break;
+    cursor = data.meta.next_cursor;
+    showProgress(0.1 + (pg+1)/10 * 0.4, `fetching page ${pg+2}...`);
   }
   all = all.filter(g => computeStat(g, 'min') > 0);
   all.sort((a,b) => new Date(b.game.date) - new Date(a.game.date));
@@ -1882,29 +2074,59 @@ function annotateVenue(logs) {
 
 // === REAL USAGE COMPUTATION ===
 async function computeRealUsage(gameLogs) {
-  let progress = 0;
-  for (const g of gameLogs) {
-    showProgress(progress / gameLogs.length, `computing real usage ${progress+1}/${gameLogs.length}...`);
+  // v10: Batch game_ids into chunks of 25 (api accepts arrays; per_page=100 holds ~5 games of 10 players = 50 stats)
+  // Each game has ~10-30 player stats. With per_page=100 and batch=20 games, we may need pagination, but batching saves enormous calls.
+  if (!gameLogs.length) return gameLogs;
+
+  const allGameIds = gameLogs.map(g => g.game.id);
+  const BATCH_SIZE = 15; // 15 games × ~20 players = 300 stats; need pagination but few requests
+  const statsByGame = new Map(); // game_id -> array of player stats
+
+  for (let i = 0; i < allGameIds.length; i += BATCH_SIZE) {
+    const batch = allGameIds.slice(i, i + BATCH_SIZE);
+    showProgress(i / allGameIds.length, `usage batch ${Math.ceil(i/BATCH_SIZE)+1}/${Math.ceil(allGameIds.length/BATCH_SIZE)}...`);
     try {
-      const data = await bdlFetch('/stats', { 'game_ids[]': g.game.id, per_page: 100 });
-      const teamStats = (data.data || []).filter(s => s.team && s.team.id === g.team.id);
-      const teamFGA = teamStats.reduce((s,x) => s + (x.fga||0), 0);
-      const teamFTA = teamStats.reduce((s,x) => s + (x.fta||0), 0);
-      const teamTOV = teamStats.reduce((s,x) => s + (x.turnover||0), 0);
-      const teamMinTotal = teamStats.reduce((s,x) => s + computeStat(x,'min'), 0);
-      const teamMin = teamMinTotal / 5;
-      const playerMin = computeStat(g, 'min');
-      const playerPlays = (g.fga||0) + 0.44*(g.fta||0) + (g.turnover||0);
-      const teamPlays = teamFGA + 0.44*teamFTA + teamTOV;
-      if (playerMin > 0 && teamPlays > 0 && teamMin > 0) {
-        g._usgReal = 100 * (playerPlays * teamMin) / (playerMin * teamPlays);
-      } else g._usgReal = null;
-      const teamOREB = teamStats.reduce((s,x)=>s+(x.oreb||0),0);
-      g._teamPoss = teamFGA + 0.44*teamFTA - teamOREB + teamTOV;
-      g._teamMin = teamMin;
-      g._teamPace = teamMin > 0 ? g._teamPoss * 48 / teamMin : null;
-    } catch(e) { g._usgReal = null; }
-    progress++;
+      // Paginate within batch
+      let cursor = null;
+      for (let pg = 0; pg < 5; pg++) {
+        const params = { 'game_ids[]': batch, per_page: 100 };
+        if (cursor) params.cursor = cursor;
+        const data = await bdlFetch('/stats', params);
+        if (!data.data || !data.data.length) break;
+        for (const s of data.data) {
+          const gid = s.game.id;
+          if (!statsByGame.has(gid)) statsByGame.set(gid, []);
+          statsByGame.get(gid).push(s);
+        }
+        if (!data.meta || !data.meta.next_cursor) break;
+        cursor = data.meta.next_cursor;
+      }
+    } catch(e) {
+      console.warn('Usage batch failed:', e.message);
+    }
+  }
+
+  // Now compute usage from collected stats
+  for (const g of gameLogs) {
+    const gameStats = statsByGame.get(g.game.id);
+    if (!gameStats) { g._usgReal = null; continue; }
+    const teamStats = gameStats.filter(s => s.team && s.team.id === g.team.id);
+    if (!teamStats.length) { g._usgReal = null; continue; }
+    const teamFGA = teamStats.reduce((s,x) => s + (x.fga||0), 0);
+    const teamFTA = teamStats.reduce((s,x) => s + (x.fta||0), 0);
+    const teamTOV = teamStats.reduce((s,x) => s + (x.turnover||0), 0);
+    const teamMinTotal = teamStats.reduce((s,x) => s + computeStat(x,'min'), 0);
+    const teamMin = teamMinTotal / 5;
+    const playerMin = computeStat(g, 'min');
+    const playerPlays = (g.fga||0) + 0.44*(g.fta||0) + (g.turnover||0);
+    const teamPlays = teamFGA + 0.44*teamFTA + teamTOV;
+    if (playerMin > 0 && teamPlays > 0 && teamMin > 0) {
+      g._usgReal = 100 * (playerPlays * teamMin) / (playerMin * teamPlays);
+    } else g._usgReal = null;
+    const teamOREB = teamStats.reduce((s,x)=>s+(x.oreb||0),0);
+    g._teamPoss = teamFGA + 0.44*teamFTA - teamOREB + teamTOV;
+    g._teamMin = teamMin;
+    g._teamPace = teamMin > 0 ? g._teamPoss * 48 / teamMin : null;
   }
   return gameLogs;
 }
@@ -2083,7 +2305,12 @@ async function runAnalysis() {
     const filtered = applyFilters(logs, filters);
     let oppData = null;
     if (filters.opponentId) {
-      oppData = await fetchOpponentPaceAndDefense(filters.opponentId, seasons[0], STATE.player.position);
+      // v10 fix: use most recent season (descending) — early in 2025-26, fall back to 2024-25 if no data
+      const sortedSeasons = [...seasons].sort((a, b) => b - a);
+      for (const s of sortedSeasons) {
+        oppData = await fetchOpponentPaceAndDefense(filters.opponentId, s, STATE.player.position);
+        if (oppData && (oppData.pace || oppData.allowed)) break;
+      }
     }
     hideProgress();
     STATE.filteredLogs = filtered;
@@ -2188,6 +2415,7 @@ function generateReasoning(ctx) {
     homeLogs, awayLogs, b2bLogs, restedLogs,
     filters, settings, kelly, stakeUnits, allLogs,
     predMean, postMean, useNB,
+    values, // v10 fix: needed for computeTrend, detectBimodal, detectStreak
   } = ctx;
 
   const playerName = `${player.first_name} ${player.last_name}`;
@@ -2459,7 +2687,7 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   }
   predMean = Math.max(0.1, predMean);
   const useNB = varFiltered > predMean * 1.05;
-  const poisProb = side === 'over' ? probOver(line, predMean, varFiltered, useNB) : probUnder(line, predMean, varFiltered, useNB);
+  const poisProb = side === 'over' ? probOver(line, predMean, varFiltered, useNB, stat) : probUnder(line, predMean, varFiltered, useNB, stat);
 
   // Model 3: Bayesian — prior é média da temporada MAIS RECENTE (mais relevante que carreira)
   // Identifica a season mais recente nos logs
@@ -2472,7 +2700,7 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   const priorMean = latestSeasonValues.length >= 5 ? avg(latestSeasonValues) : meanAll;
   const priorWeight = STATE.settings.bayesPrior;
   const postMean = (priorMean * priorWeight + meanFiltered * N) / (priorWeight + N);
-  const bayesProb = side === 'over' ? probOver(line, postMean, varFiltered, useNB) : probUnder(line, postMean, varFiltered, useNB);
+  const bayesProb = side === 'over' ? probOver(line, postMean, varFiltered, useNB, stat) : probUnder(line, postMean, varFiltered, useNB, stat);
 
   // Blend — compute ALL blends for model selection tracking
   const BLEND_WEIGHTS = {
@@ -2583,10 +2811,20 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
     if (postLogs.length > 0) signals.push({ type: 'info', txt: `${postLogs.length} playoff games excluded` });
   }
 
-  const homeLogs = allLogs.filter(g => g._venue === 'home');
-  const awayLogs = allLogs.filter(g => g._venue === 'away');
-  const b2bLogs = allLogs.filter(g => g._restDays === 0);
-  const restedLogs = allLogs.filter(g => g._restDays >= 2);
+  // v10 fix: splits agora respeitam gameType filter e min minutes
+  // Aplica os mesmos filtros base (gameType + minMinutes) que applyFilters usa
+  const splitBase = allLogs.filter(g => {
+    // Filter game type
+    if (filters.gameType === 'regular' && g.game && g.game.postseason === true) return false;
+    if (filters.gameType === 'postseason' && g.game && g.game.postseason !== true) return false;
+    // Filter min minutes
+    if (computeStat(g, 'min') < (filters.minMinutesFilter || 15)) return false;
+    return true;
+  });
+  const homeLogs = splitBase.filter(g => g._venue === 'home');
+  const awayLogs = splitBase.filter(g => g._venue === 'away');
+  const b2bLogs = splitBase.filter(g => g._restDays === 0);
+  const restedLogs = splitBase.filter(g => g._restDays >= 2);
   const splitStat = (lgs) => {
     if (!lgs.length) return null;
     const v = lgs.map(g => computeStat(g, stat));
@@ -2644,13 +2882,14 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
       homeLogs, awayLogs, b2bLogs, restedLogs,
       filters, settings: STATE.settings, kelly: k, stakeUnits, allLogs,
       predMean, postMean, useNB,
+      values, // v10 fix
     })}
     <details>
       <summary>▸ Model Breakdown · 3 estimators ${tip('edge_blend')}</summary>
       <div class="details-body">
         <div class="models-grid">
           <div class="model-cell"><div class="lbl">Empirical Hit-Rate ${tip('empirical')}</div><div class="v">${pct(empProb,1)}</div><div class="sub">weighted L5×${wRecent}</div></div>
-          <div class="model-cell"><div class="lbl">${useNB?'NegBinomial':'Poisson'} ${tip(useNB?'negbinom':'poisson')}</div><div class="v">${pct(poisProb,1)}</div><div class="sub">μ=${fmt(predMean,1)} σ²=${fmt(varFiltered,1)}${oppData?' · adj':''}</div></div>
+          <div class="model-cell"><div class="lbl">${(NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'Normal' : (useNB?'NegBinomial':'Poisson')} ${tip((NORMAL_DIST_STATS.has(stat) && predMean >= 5) ? 'normal' : (useNB?'negbinom':'poisson'))}</div><div class="v">${pct(poisProb,1)}</div><div class="sub">μ=${fmt(predMean,1)} σ²=${fmt(varFiltered,1)}${oppData?' · adj':''}</div></div>
           <div class="model-cell"><div class="lbl">Bayesian ${tip('bayesian')}</div><div class="v">${pct(bayesProb,1)}</div><div class="sub">posterior μ=${fmt(postMean,1)}</div></div>
         </div>
       </div>
@@ -2912,13 +3151,36 @@ $('#reset-settings').addEventListener('click', () => {
 function renderCacheInfo() {
   const keys = Object.keys(STATE.cache);
   const sizeKB = (JSON.stringify(STATE.cache).length / 1024).toFixed(1);
-  $('#cache-info').textContent = `${keys.length} cached · ${sizeKB} KB`;
+  const rate = RateLimiter.status();
+  $('#cache-info').innerHTML = `
+    <div>Cache: <strong style="color:var(--ink);">${keys.length}</strong> entries · <strong style="color:var(--ink);">${sizeKB} KB</strong> / 4096 KB limit</div>
+    <div style="margin-top:6px;">Rate limiter: <strong style="color:var(--accent);">${rate.tokens}</strong>/${rate.capacity} tokens · ${rate.perMin}/min · ${rate.waiters} waiting</div>
+  `;
 }
 $('#clear-cache').addEventListener('click', () => {
   STATE.cache = {};
   localStorage.removeItem('bdl_cache');
   renderCacheInfo();
 });
+// v10: API plan selector
+const savedPlan = localStorage.getItem('bdl_plan') || '60';
+const planEl = document.getElementById('api-plan');
+if (planEl) {
+  planEl.value = savedPlan;
+  RateLimiter.setRate(Number(savedPlan));
+  planEl.addEventListener('change', (e) => {
+    const rate = Number(e.target.value);
+    RateLimiter.setRate(rate);
+    localStorage.setItem('bdl_plan', String(rate));
+    renderCacheInfo();
+  });
+}
+// Refresh cache info every 2s when in Settings tab
+setInterval(() => {
+  if (!$('#tab-settings').classList.contains('hidden')) {
+    renderCacheInfo();
+  }
+}, 2000);
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#player-search') && !e.target.closest('#search-results')) {
     $('#search-results').classList.add('hidden');
@@ -3140,22 +3402,72 @@ function buildSnapshot() {
   };
 }
 
+function validateSnapshot(snapshot) {
+  // v10: schema validation to prevent corrupted JSON from bricking app
+  const errors = [];
+  if (!snapshot || typeof snapshot !== 'object') {
+    errors.push('snapshot is not an object');
+    return { valid: false, errors };
+  }
+  if (!snapshot.version || typeof snapshot.version !== 'string') {
+    errors.push('missing version field');
+  }
+  if (!snapshot.profile || typeof snapshot.profile !== 'object') {
+    errors.push('missing profile object');
+  } else {
+    if (!snapshot.profile.id || typeof snapshot.profile.id !== 'string') {
+      errors.push('profile.id must be a string');
+    }
+    if (!snapshot.profile.created) {
+      errors.push('profile.created missing');
+    }
+  }
+  // bets must be array if present
+  if (snapshot.bets !== undefined && !Array.isArray(snapshot.bets)) {
+    errors.push('bets must be array');
+  }
+  // settings must be object if present
+  if (snapshot.settings !== undefined && (typeof snapshot.settings !== 'object' || Array.isArray(snapshot.settings))) {
+    errors.push('settings must be object');
+  }
+  // apiKey must be string if present
+  if (snapshot.apiKey !== undefined && typeof snapshot.apiKey !== 'string') {
+    errors.push('apiKey must be string');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
 function seedFromSnapshot(snapshot) {
-  if (snapshot.profile) {
-    STATE.profile = snapshot.profile;
-    localStorage.setItem('bdl_profile', JSON.stringify(snapshot.profile));
+  // v10: validate before mutating state
+  const validation = validateSnapshot(snapshot);
+  if (!validation.valid) {
+    throw new Error('Perfil inválido: ' + validation.errors.join('; '));
   }
-  if (snapshot.bets) {
-    STATE.bets = snapshot.bets;
-    localStorage.setItem('bdl_bets', JSON.stringify(snapshot.bets));
-  }
-  if (snapshot.settings) {
-    STATE.settings = Object.assign(STATE.settings, snapshot.settings);
-    localStorage.setItem('bdl_settings', JSON.stringify(STATE.settings));
-  }
-  if (snapshot.apiKey) {
-    STATE.apiKey = snapshot.apiKey;
-    localStorage.setItem('bdl_key', snapshot.apiKey);
+  try {
+    if (snapshot.profile) {
+      STATE.profile = snapshot.profile;
+      localStorage.setItem('bdl_profile', JSON.stringify(snapshot.profile));
+    }
+    if (snapshot.bets) {
+      // Sanitize bets — each must have at minimum id and timestamp
+      const validBets = snapshot.bets.filter(b => b && typeof b === 'object' && b.id && b.timestamp);
+      STATE.bets = validBets;
+      localStorage.setItem('bdl_bets', JSON.stringify(validBets));
+    }
+    if (snapshot.settings) {
+      // Merge with defaults to avoid missing fields
+      STATE.settings = Object.assign({
+        thrBet: 5, thrLean: 2, weightRecent: 1.5, minSample: 15,
+        bankroll: 100, kellyFrac: 0.25, bayesPrior: 30, modelBlend: 'balanced',
+      }, snapshot.settings);
+      localStorage.setItem('bdl_settings', JSON.stringify(STATE.settings));
+    }
+    if (snapshot.apiKey) {
+      STATE.apiKey = snapshot.apiKey;
+      localStorage.setItem('bdl_key', snapshot.apiKey);
+    }
+  } catch (e) {
+    throw new Error('Falha ao popular dados: ' + e.message);
   }
 }
 
@@ -3479,6 +3791,7 @@ function computeModelPerformance() {
     const tBet = STATE.settings.thrBet / 100;
     
     for (const bet of settled) {
+      if (!bet.allBlendProbs) continue; // v10 fix: skip bets without blend data
       const prob = bet.allBlendProbs[blend];
       if (prob === undefined || prob === null) continue;
       const actualWin = bet.status === 'win' ? 1 : 0;

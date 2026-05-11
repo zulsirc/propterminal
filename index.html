@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v7 // NBA · Guided Tour</title>
+<title>PROP TERMINAL v9 // NBA · Advanced Modeling</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -772,7 +772,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v7 · Hosted · Tutorial · Profile File-Based</span>
+      <span class="tag">v9 · Advanced Modeling · Trend · Clusters · Pace v2</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -801,6 +801,8 @@
     <button class="tab active" data-tab="analyze">Analyze</button>
     <button class="tab" data-tab="injuries">Injuries</button>
     <button class="tab" data-tab="tracker">Tracker <span class="badge" id="tracker-badge">0</span></button>
+    <button class="tab" data-tab="models">Models</button>
+    <button class="tab" data-tab="lineshop">Line Shop</button>
     <button class="tab" data-tab="learn">Learn</button>
     <button class="tab" data-tab="profile">Profile</button>
     <button class="tab" data-tab="settings">Settings</button>
@@ -906,6 +908,25 @@
         </div>
 
         <div class="filters-row" style="margin-top:8px;">
+          <div class="filter-group">
+            <label>Game Type Filter</label>
+            <select id="gametype-select">
+              <option value="regular">Regular Season only (recommended)</option>
+              <option value="all">All games (mixed)</option>
+              <option value="postseason">Playoffs only</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Expected Minutes <span class="tip" data-tip="Minutos esperados nesta noite. Se o player normalmente joga 30 e hoje vai jogar 20 (rotation/blowout), informa pra ajustar a projeção proporcionalmente. Deixa 0 pra usar média histórica.">?</span></label>
+            <input type="number" id="expected-min" step="1" placeholder="0 = use média" min="0" max="48" />
+          </div>
+          <div class="filter-group">
+            <label>Min Minutes Filter <span class="tip" data-tip="Filtra jogos onde o player jogou pelo menos X minutos. Útil pra excluir lesões precoces, ejeções, ou blowouts. Default 15.">?</span></label>
+            <input type="number" id="min-minutes-filter" step="1" placeholder="15" min="0" max="48" />
+          </div>
+        </div>
+
+        <div class="filters-row" style="margin-top:8px;">
           <div class="filter-group" style="grid-column: 1/4;">
             <label style="display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="adv-usage" style="width:auto;"> Compute REAL usage rate (slow: +30s per season)
@@ -979,6 +1000,46 @@
           </div>
         </div>
         <div id="bets-table-wrap"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-models" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[M1]</span> Model Selection · Performance Real</h2>
+        <span class="meta" id="models-meta">auto-tracking</span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size: 12px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 16px;">
+          A cada análise, o terminal computa <strong>todos os 4 blends</strong> de modelo (mesmo que tu use só um). Quando as bets são resolvidas (Auto-Settlement), ele compara as predições de cada blend com o resultado real e calcula <strong>Brier Score</strong> (menor = melhor calibração) e <strong>ROI hipotético</strong> (se tu tivesse seguido aquele blend cegamente).
+          <br><br>
+          Depois de <strong>20+ bets resolvidas</strong>, tu vai ter dados estatisticamente significativos pra escolher o melhor blend pro teu nicho de apostas. Sugestão automática aparece abaixo.
+        </div>
+        <div id="model-selection-content"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-lineshop" class="hidden">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[L1]</span> Line Shopping · Player Props</h2>
+        <span class="meta" id="lineshop-meta">selecione um jogo</span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size: 12px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 14px;">
+          Compara odds de player props ao vivo entre 9 sportsbooks (DraftKings, FanDuel, BetMGM, Caesars, Bet365, etc). <strong>Apostar sempre na melhor odd disponível aumenta ROI em +1-3%</strong> só pelo shopping, sem mudar nada do modelo. Requer plano ALL-STAR ou GOAT.
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; margin-bottom: 14px;">
+          <div>
+            <label>Data dos Jogos (YYYY-MM-DD)</label>
+            <input type="date" id="lineshop-date" />
+          </div>
+          <button class="primary" id="lineshop-load" style="width: auto; padding: 8px 18px;">Carregar Jogos</button>
+        </div>
+        <div id="lineshop-games"></div>
+        <div id="lineshop-props" style="margin-top: 14px;"></div>
       </div>
     </section>
   </div>
@@ -1471,6 +1532,7 @@ const TIPS = {
   paceAdj: 'Multiplicador aplicado à projeção do jogador baseado no pace esperado do confronto. >1 = jogo deve ser mais rápido que padrão do jogador, projeção sobe.',
   hitRate: 'Hit Rate: % dos jogos (filtrados) onde o jogador bateu a linha do lado escolhido. Dado bruto, sem ajustes.',
   models_agree: 'Quando os 3 modelos (Empirical, Distribution, Bayesian) dão probabilidades similares (spread <4%), confiança alta. Spread >10% = modelos discordam, sinal fraco.',
+  brier: 'Brier Score = média de (probabilidade prevista - resultado real)². Mede calibração. Score 0 = perfeito. 0.25 = chute aleatório. Quanto MENOR, melhor. Usado pra comparar qualidade dos modelos de forma estatística rigorosa.',
 };
 
 function tip(key) {
@@ -1489,13 +1551,15 @@ $$('.tab').forEach(t => {
     $$('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     const which = t.dataset.tab;
-    ['analyze','injuries','tracker','learn','profile','settings'].forEach(name => {
+    ['analyze','injuries','tracker','models','lineshop','learn','profile','settings'].forEach(name => {
       $('#tab-' + name).classList.toggle('hidden', which !== name);
     });
     if (which === 'tracker') renderTracker();
     if (which === 'settings') renderCacheInfo();
     if (which === 'injuries' && !STATE.injuries) refreshInjuries();
     if (which === 'profile') renderProfile();
+    if (which === 'models') renderModelSelection();
+    if (which === 'lineshop') renderLineShopInit();
   });
 });
 
@@ -1569,6 +1633,12 @@ async function bdlFetch(path, params={}, useCache=true) {
   if (res.status === 429) {
     await sleep(13000);
     return bdlFetch(path, params, useCache);
+  }
+  if (res.status === 401) {
+    throw new Error('HTTP 401: API key inválida OU teu plano não tem acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem plano ALL-STAR ($9.99/mês) ou GOAT. Vai em app.balldontlie.io pra fazer upgrade.');
+  }
+  if (res.status === 403) {
+    throw new Error('HTTP 403: Teu plano BalldontLie não dá acesso a esse endpoint. Endpoints /stats, /season_averages, /player_injuries e /v2/odds requerem ALL-STAR ou GOAT.');
   }
   if (!res.ok) {
     const txt = await res.text().catch(()=>'');
@@ -1654,16 +1724,59 @@ $('#player-search').addEventListener('input', (e) => {
 });
 async function searchPlayer(q) {
   try {
-    const data = await bdlFetch('/players', { search: q, per_page: 12 });
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    let allResults = [];
+
+    if (tokens.length >= 2) {
+      // Multi-word search: try first_name + last_name combinations
+      // Strategy: search by last_name (most discriminating), then filter by first_name
+      const lastNameQuery = tokens[tokens.length - 1];
+      const firstNameQuery = tokens.slice(0, -1).join(' ');
+
+      // Try as last_name + first_name
+      try {
+        const data1 = await bdlFetch('/players', { last_name: lastNameQuery, first_name: firstNameQuery, per_page: 12 });
+        if (data1.data && data1.data.length) allResults = allResults.concat(data1.data);
+      } catch(e) { /* continue */ }
+
+      // Also try the reverse (in case user put last_name first)
+      try {
+        const data2 = await bdlFetch('/players', { last_name: tokens[0], first_name: tokens.slice(1).join(' '), per_page: 12 });
+        if (data2.data && data2.data.length) {
+          for (const p of data2.data) {
+            if (!allResults.find(x => x.id === p.id)) allResults.push(p);
+          }
+        }
+      } catch(e) { /* continue */ }
+
+      // Fallback: just search by last_name alone, then filter client-side
+      if (allResults.length === 0) {
+        try {
+          const data3 = await bdlFetch('/players', { search: lastNameQuery, per_page: 30 });
+          if (data3.data) {
+            const fnLower = firstNameQuery.toLowerCase();
+            allResults = data3.data.filter(p =>
+              p.first_name.toLowerCase().includes(fnLower) ||
+              fnLower.includes(p.first_name.toLowerCase())
+            );
+          }
+        } catch(e) { /* continue */ }
+      }
+    } else {
+      // Single word: use original search
+      const data = await bdlFetch('/players', { search: q, per_page: 12 });
+      allResults = data.data || [];
+    }
+
     const box = $('#search-results');
     box.innerHTML = '';
-    if (!data.data || !data.data.length) {
+    if (!allResults.length) {
       box.innerHTML = '<div class="row"><span class="nm">no matches</span></div>';
       box.classList.remove('hidden');
       $('#search-meta').textContent = '0 results';
       return;
     }
-    for (const p of data.data) {
+    for (const p of allResults.slice(0, 12)) {
       const row = document.createElement('div');
       row.className = 'row';
       const team = p.team ? (p.team.abbreviation || '') : '–';
@@ -1672,7 +1785,7 @@ async function searchPlayer(q) {
       box.appendChild(row);
     }
     box.classList.remove('hidden');
-    $('#search-meta').textContent = data.data.length + ' results';
+    $('#search-meta').textContent = allResults.length + ' results';
   } catch (err) { $('#search-meta').textContent = 'err: ' + err.message; }
 }
 function selectPlayer(p) {
@@ -1812,28 +1925,49 @@ async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
     if (s.team && s.team.id === Number(opponentTeamId)) gameMap[s.game.id].oppTeam.push(s);
     else gameMap[s.game.id].otherTeam.push(s);
   }
-  let totalPace = 0, paceCount = 0;
+  // Pace v2: offensive (opp's own possessions) and defensive (opp's opponents' possessions, i.e., forced upon them)
+  let totalOffPace = 0, offPaceCount = 0;
+  let totalDefPace = 0, defPaceCount = 0;
   let allowedStats = [];
+  let oppRestDaysList = []; // For opponent rest analysis
   for (const gid of Object.keys(gameMap)) {
     const { oppTeam, otherTeam } = gameMap[gid];
     if (oppTeam.length === 0 || otherTeam.length === 0) continue;
+
+    // Offensive pace: opponent's own possessions per 48
     const oppFGA = oppTeam.reduce((s,x) => s+(x.fga||0), 0);
     const oppFTA = oppTeam.reduce((s,x) => s+(x.fta||0), 0);
     const oppTOV = oppTeam.reduce((s,x) => s+(x.turnover||0), 0);
     const oppOREB = oppTeam.reduce((s,x) => s+(x.oreb||0), 0);
     const oppMinTotal = oppTeam.reduce((s,x) => s+computeStat(x,'min'), 0);
     const oppMin = oppMinTotal / 5;
-    const poss = oppFGA + 0.44*oppFTA - oppOREB + oppTOV;
-    if (oppMin > 0) { totalPace += poss * 48 / oppMin; paceCount++; }
+    const oppPoss = oppFGA + 0.44*oppFTA - oppOREB + oppTOV;
+    if (oppMin > 0) { totalOffPace += oppPoss * 48 / oppMin; offPaceCount++; }
+
+    // Defensive pace: opponent's opponents' possessions (how fast they ALLOW games)
+    const otherFGA = otherTeam.reduce((s,x) => s+(x.fga||0), 0);
+    const otherFTA = otherTeam.reduce((s,x) => s+(x.fta||0), 0);
+    const otherTOV = otherTeam.reduce((s,x) => s+(x.turnover||0), 0);
+    const otherOREB = otherTeam.reduce((s,x) => s+(x.oreb||0), 0);
+    const otherMinTotal = otherTeam.reduce((s,x) => s+computeStat(x,'min'), 0);
+    const otherMin = otherMinTotal / 5;
+    const otherPoss = otherFGA + 0.44*otherFTA - otherOREB + otherTOV;
+    if (otherMin > 0) { totalDefPace += otherPoss * 48 / otherMin; defPaceCount++; }
+
     for (const s of otherTeam) {
       if (computeStat(s, 'min') < 15) continue;
       if (positionMatch(s.player.position, position)) allowedStats.push(s);
     }
   }
-  const oppPace = paceCount > 0 ? totalPace / paceCount : null;
-  if (!allowedStats.length) return { pace: oppPace, allowed: null, sample: 0, games: played.length };
+  const oppOffPace = offPaceCount > 0 ? totalOffPace / offPaceCount : null;
+  const oppDefPace = defPaceCount > 0 ? totalDefPace / defPaceCount : null;
+  const oppPace = (oppOffPace && oppDefPace) ? (oppOffPace + oppDefPace) / 2 : (oppOffPace || oppDefPace);
+
+  if (!allowedStats.length) return { pace: oppPace, offPace: oppOffPace, defPace: oppDefPace, allowed: null, sample: 0, games: played.length };
   return {
     pace: oppPace,
+    offPace: oppOffPace,
+    defPace: oppDefPace,
     allowed: {
       pts: avg(allowedStats.map(s => s.pts || 0)),
       reb: avg(allowedStats.map(s => s.reb || 0)),
@@ -1877,6 +2011,18 @@ async function annotateTeammateGames(logs, teammateId) {
 // === FILTERS ===
 function applyFilters(logs, filters) {
   let out = logs.slice();
+
+  // Game type filter (regular/postseason/all)
+  if (filters.gameType === 'regular') {
+    out = out.filter(g => g.game && g.game.postseason === false);
+  } else if (filters.gameType === 'postseason') {
+    out = out.filter(g => g.game && g.game.postseason === true);
+  }
+
+  // Min minutes filter (excludes blowouts, ejections, injuries)
+  const minMin = filters.minMinutesFilter || 15;
+  out = out.filter(g => computeStat(g, 'min') >= minMin);
+
   if (filters.venue !== 'all') out = out.filter(g => g._venue === filters.venue);
   if (filters.rest !== 'all') {
     out = out.filter(g => {
@@ -1917,6 +2063,9 @@ async function runAnalysis() {
     teammateState: $('#teammate-state').value,
     opponentId: $('#opponent-select').value || null,
     advUsage: $('#adv-usage').checked,
+    gameType: $('#gametype-select').value,
+    expectedMin: Number($('#expected-min').value) || 0,
+    minMinutesFilter: Number($('#min-minutes-filter').value) || 15,
   };
   $('#analyze-btn').disabled = true;
   $('#results-panel').classList.remove('hidden');
@@ -1954,6 +2103,77 @@ async function runAnalysis() {
   } finally {
     $('#analyze-btn').disabled = false;
   }
+}
+
+// === ADVANCED ANALYSIS HELPERS (v9) ===
+
+// Linear regression on last N games — detects trend
+function computeTrend(values, n) {
+  if (values.length < 5) return null;
+  const sample = values.slice(0, Math.min(n, values.length)).reverse();
+  const N = sample.length;
+  const xs = sample.map((_, i) => i);
+  const ys = sample;
+  const meanX = avg(xs);
+  const meanY = avg(ys);
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < N; i++) {
+    num += (xs[i] - meanX) * (ys[i] - meanY);
+    denX += Math.pow(xs[i] - meanX, 2);
+    denY += Math.pow(ys[i] - meanY, 2);
+  }
+  if (denX === 0 || denY === 0) return null;
+  const slope = num / denX;
+  const intercept = meanY - slope * meanX;
+  const r = num / Math.sqrt(denX * denY);
+  const r2 = r * r;
+  const relSlope = meanY > 0 ? slope / meanY : 0;
+  let direction = 'flat';
+  let strengthLabel = 'no trend';
+  if (Math.abs(relSlope) > 0.02 && r2 > 0.15) {
+    direction = slope > 0 ? 'rising' : 'falling';
+    if (r2 > 0.5) strengthLabel = 'strong ' + direction;
+    else if (r2 > 0.3) strengthLabel = 'moderate ' + direction;
+    else strengthLabel = 'weak ' + direction;
+  }
+  return { slope, intercept, r2, direction, strengthLabel, relSlopePerGame: relSlope };
+}
+
+// Detect bimodal (boom/bust) distribution
+function detectBimodal(values) {
+  if (values.length < 10) return { isBimodal: false, separation: 0 };
+  const sorted = [...values].sort((a, b) => a - b);
+  const m = Math.floor(sorted.length / 2);
+  const lower = sorted.slice(0, m);
+  const upper = sorted.slice(m);
+  const meanLower = avg(lower);
+  const meanUpper = avg(upper);
+  const sdAll = stdev(sorted);
+  if (sdAll === 0) return { isBimodal: false, separation: 0 };
+  const separation = (meanUpper - meanLower) / sdAll;
+  const isBimodal = separation > 2.3 && sorted.length >= 15;
+  return { isBimodal, separation, lowMean: meanLower, highMean: meanUpper, lowCount: lower.length, highCount: upper.length };
+}
+
+// Detect current streak (consecutive overs or unders)
+function detectStreak(values, line, side) {
+  if (values.length < 3) return null;
+  let currentStreak = 0;
+  let currentType = null;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    const isOver = v > line;
+    const isHit = side === 'over' ? isOver : (v < line);
+    if (i === 0) {
+      currentType = isHit ? 'hit' : 'miss';
+      currentStreak = 1;
+    } else {
+      const sameType = (currentType === 'hit' && isHit) || (currentType === 'miss' && !isHit);
+      if (sameType) currentStreak++;
+      else break;
+    }
+  }
+  return { streak: currentStreak, type: currentType };
 }
 
 // === REASONING NARRATIVE GENERATOR ===
@@ -2026,16 +2246,49 @@ function generateReasoning(ctx) {
   else p3 += ` (estável)`;
   p3 += `.`;
 
+  // === PARÁGRAFO 3-BIS: Análise de tendência avançada (v9) ===
+  let p3b = '';
+  const trendNarr = computeTrend(values, 10);
+  const bimodalNarr = detectBimodal(values);
+  const streakNarr = detectStreak(values, line, side);
+
+  const tendencies = [];
+  if (trendNarr && trendNarr.direction !== 'flat') {
+    const trendStat = side === 'over' ? 'positiva' : 'negativa';
+    const trendFavor = (trendNarr.direction === 'rising' && side === 'over') || (trendNarr.direction === 'falling' && side === 'under');
+    if (trendNarr.direction === 'rising') {
+      tendencies.push(`Tendência <strong>${trendFavor ? 'a favor' : 'contra'}</strong>: nos últimos 10 jogos a produção está <span class="${trendFavor ? 'pos' : 'neg'}">subindo</span> em ${fmt(trendNarr.slope, 2)} ${statName} por jogo (r²=${fmt(trendNarr.r2, 2)}, ajuste ${trendNarr.strengthLabel})`);
+    } else {
+      tendencies.push(`Tendência <strong>${trendFavor ? 'a favor' : 'contra'}</strong>: nos últimos 10 jogos a produção está <span class="${trendFavor ? 'pos' : 'neg'}">caindo</span> em ${fmt(Math.abs(trendNarr.slope), 2)} ${statName} por jogo (r²=${fmt(trendNarr.r2, 2)}, ${trendNarr.strengthLabel})`);
+    }
+  }
+  if (bimodalNarr.isBimodal) {
+    tendencies.push(`Padrão <strong>boom/bust</strong> detectado: jogos costumam ser ou em torno de <strong>${fmt(bimodalNarr.lowMean,1)}</strong> (${bimodalNarr.lowCount} jogos) ou de <strong>${fmt(bimodalNarr.highMean,1)}</strong> (${bimodalNarr.highCount} jogos), com pouca coisa no meio. Isso aumenta a variância — apostas em linhas próximas da média são mais arriscadas`);
+  }
+  if (streakNarr && streakNarr.streak >= 3) {
+    const streakFavor = streakNarr.type === 'hit';
+    tendencies.push(`<strong>${streakNarr.streak} jogos consecutivos</strong> ${streakNarr.type === 'hit' ? 'batendo' : 'não batendo'} a linha ${side === 'over' ? 'OVER' : 'UNDER'} (sequência atual <span class="${streakFavor ? 'pos' : 'neg'}">${streakFavor ? 'a favor' : 'contra'}</span> de quem aposta)`);
+  }
+  if (tendencies.length > 0) {
+    p3b = `<strong>Padrões detectados:</strong><ul><li>${tendencies.join('</li><li>')}</li></ul>`;
+  }
+
   // === PARÁGRAFO 4: Contexto do jogo (matchup) ===
   let p4 = '';
   if (oppData) {
     p4 = `<strong>Contexto do jogo:</strong> `;
-    if (oppData.pace) {
+    if (oppData.pace || oppData.offPace) {
       const playerPaces = (allLogs || []).filter(g => g._teamPace).map(g => g._teamPace);
       const playerTeamPace = playerPaces.length ? avg(playerPaces) : 99;
-      const expectedPace = (playerTeamPace + oppData.pace) / 2;
-      p4 += `o adversário joga em pace ${fmt(oppData.pace, 1)} possessions/48min, o time do jogador em ${fmt(playerTeamPace, 1)}. `;
-      p4 += `Pace esperado do confronto: ${fmt(expectedPace, 1)}. `;
+      // v9: use defensive pace of opponent (how they slow down/speed up games)
+      const oppPaceToUse = oppData.defPace || oppData.pace;
+      const expectedPace = (playerTeamPace + oppPaceToUse) / 2;
+      if (oppData.offPace && oppData.defPace && Math.abs(oppData.offPace - oppData.defPace) > 2) {
+        p4 += `o adversário tem ritmo ofensivo de <strong>${fmt(oppData.offPace, 1)}</strong> mas defensivamente força ritmo de <strong>${fmt(oppData.defPace, 1)}</strong> (eles ${oppData.defPace < oppData.offPace ? 'desaceleram' : 'aceleram'} o jogo defensivamente). `;
+      } else {
+        p4 += `o adversário joga em pace <strong>${fmt(oppPaceToUse, 1)}</strong> possessions/48min. `;
+      }
+      p4 += `O time do jogador joga em ${fmt(playerTeamPace, 1)}. Pace esperado do confronto: <strong>${fmt(expectedPace, 1)}</strong>. `;
       if (paceAdj > 1.03) p4 += `Isso é <span class="pos">mais rápido</span> que o padrão dele (multiplicador ×${fmt(paceAdj, 2)}, projeção sobe). `;
       else if (paceAdj < 0.97) p4 += `Isso é <span class="neg">mais lento</span> que o padrão dele (multiplicador ×${fmt(paceAdj, 2)}, projeção cai). `;
       else p4 += `Pace neutro, sem ajuste relevante. `;
@@ -2129,6 +2382,7 @@ function generateReasoning(ctx) {
       <p>${p1}</p>
       <p>${p2}</p>
       <p>${p3}</p>
+      ${p3b ? `<p>${p3b}</p>` : ''}
       ${p4 ? `<p>${p4}</p>` : ''}
       ${p5 ? `<p>${p5}</p>` : ''}
       <p>${p6}</p>
@@ -2166,13 +2420,35 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   // Model 2: Distribution
   let predMean = avg(values.slice(0, Math.min(15, N)));
   let paceAdj = 1.0;
-  if (oppData && oppData.pace) {
+  let minutesAdj = 1.0; // expected minutes adjustment
+
+  if (oppData && (oppData.offPace || oppData.pace)) {
+    // Calculate player's team pace (offensive)
     const playerPaces = logs.filter(g => g._teamPace).map(g => g._teamPace);
-    const playerTeamPace = playerPaces.length ? avg(playerPaces) : 99;
-    const expectedPace = (playerTeamPace + oppData.pace) / 2;
-    paceAdj = expectedPace / playerTeamPace;
+    const playerTeamOffPace = playerPaces.length ? avg(playerPaces) : 99;
+
+    // Pace v2: expected pace = avg(player_team_off_pace, opp_def_pace)
+    // The defensive pace of the opponent represents the pace at which they ALLOW games to be played.
+    // If they're a slow-down defense, they reduce pace. If they're fast, they don't slow it down.
+    const oppDefPace = oppData.defPace || oppData.pace;
+    const expectedPace = (playerTeamOffPace + oppDefPace) / 2;
+    paceAdj = expectedPace / playerTeamOffPace;
     predMean = predMean * paceAdj;
   }
+
+  // Expected minutes adjustment (if user specified)
+  if (filters.expectedMin > 0) {
+    const avgMinutes = avg(logs.map(g => computeStat(g, 'min')));
+    if (avgMinutes > 0) {
+      // Scale linearly: stat is proportional to minutes for most counting stats
+      minutesAdj = filters.expectedMin / avgMinutes;
+      // But don't scale TOO aggressively — there's a floor of "garbage time efficiency"
+      // Bound the adjustment to [0.5, 1.5]
+      minutesAdj = Math.max(0.5, Math.min(1.5, minutesAdj));
+      predMean = predMean * minutesAdj;
+    }
+  }
+
   let matchupAdj = 0;
   if (oppData && oppData.allowed && ['pts','reb','ast','fg3m','stl','blk'].includes(stat)) {
     const allowed = oppData.allowed[stat];
@@ -2185,21 +2461,33 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   const useNB = varFiltered > predMean * 1.05;
   const poisProb = side === 'over' ? probOver(line, predMean, varFiltered, useNB) : probUnder(line, predMean, varFiltered, useNB);
 
-  // Model 3: Bayesian
-  const priorMean = meanAll;
+  // Model 3: Bayesian — prior é média da temporada MAIS RECENTE (mais relevante que carreira)
+  // Identifica a season mais recente nos logs
+  const allSeasons = [...new Set(allLogs.map(g => g.game?.season).filter(s => s !== undefined))];
+  const latestSeason = allSeasons.length ? Math.max(...allSeasons) : null;
+  const latestSeasonLogs = latestSeason !== null
+    ? allLogs.filter(g => g.game?.season === latestSeason)
+    : allLogs;
+  const latestSeasonValues = latestSeasonLogs.map(g => computeStat(g, stat));
+  const priorMean = latestSeasonValues.length >= 5 ? avg(latestSeasonValues) : meanAll;
   const priorWeight = STATE.settings.bayesPrior;
   const postMean = (priorMean * priorWeight + meanFiltered * N) / (priorWeight + N);
   const bayesProb = side === 'over' ? probOver(line, postMean, varFiltered, useNB) : probUnder(line, postMean, varFiltered, useNB);
 
-  // Blend
-  let weights;
-  switch (STATE.settings.modelBlend) {
-    case 'empirical': weights = [0.6, 0.2, 0.2]; break;
-    case 'poisson':   weights = [0.2, 0.6, 0.2]; break;
-    case 'bayes':     weights = [0.2, 0.2, 0.6]; break;
-    default:          weights = [0.34, 0.33, 0.33];
+  // Blend — compute ALL blends for model selection tracking
+  const BLEND_WEIGHTS = {
+    balanced:  [0.34, 0.33, 0.33],
+    empirical: [0.6, 0.2, 0.2],
+    poisson:   [0.2, 0.6, 0.2],
+    bayes:     [0.2, 0.2, 0.6],
+  };
+  const allBlendProbs = {};
+  for (const blendName of Object.keys(BLEND_WEIGHTS)) {
+    const w = BLEND_WEIGHTS[blendName];
+    allBlendProbs[blendName] = w[0]*empProb + w[1]*poisProb + w[2]*bayesProb;
   }
-  const finalProb = weights[0]*empProb + weights[1]*poisProb + weights[2]*bayesProb;
+  const weights = BLEND_WEIGHTS[STATE.settings.modelBlend] || BLEND_WEIGHTS.balanced;
+  const finalProb = allBlendProbs[STATE.settings.modelBlend] || allBlendProbs.balanced;
   const impl = impliedProb(odd);
   const ev = evPct(finalProb, odd);
   const edge = finalProb - impl;
@@ -2263,6 +2551,38 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   if (modelSpread > 0.10) signals.push({ type:'warn', txt:`Models disagree (${pct(modelSpread)})` });
   else if (modelSpread < 0.04) signals.push({ type:'good', txt:`Models agree (${pct(modelSpread)})` });
 
+  // v9: Trend analysis (linear regression on last 10 games)
+  const trend = computeTrend(values, 10);
+  if (trend && trend.direction !== 'flat') {
+    const trendType = (trend.direction === 'rising' && side === 'over') || (trend.direction === 'falling' && side === 'under') ? 'good' : 'bad';
+    signals.push({ type: trendType, txt: `${trend.strengthLabel.toUpperCase()} (r²=${fmt(trend.r2,2)}, ${trend.slope >= 0 ? '+' : ''}${fmt(trend.slope, 2)}/g)` });
+  }
+
+  // v9: Bimodal detection
+  const bimodal = detectBimodal(values);
+  if (bimodal.isBimodal) {
+    signals.push({ type: 'warn', txt: `Boom/bust pattern · ${fmt(bimodal.lowMean,1)} or ${fmt(bimodal.highMean,1)}` });
+  }
+
+  // v9: Current streak
+  const streak = detectStreak(values, line, side);
+  if (streak && streak.streak >= 3) {
+    const streakType = streak.type === 'hit' ? 'good' : 'bad';
+    signals.push({ type: streakType, txt: `${streak.streak}-game ${streak.type} streak (${side})` });
+  }
+
+  // v9: Expected minutes signal
+  if (filters.expectedMin > 0 && minutesAdj !== 1.0) {
+    const minutesDir = minutesAdj > 1 ? 'good' : 'bad';
+    signals.push({ type: minutesDir, txt: `Expected min ${filters.expectedMin} → ×${fmt(minutesAdj, 2)}` });
+  }
+
+  // v9: Postseason filtering signal
+  if (filters.gameType === 'regular') {
+    const postLogs = allLogs.filter(g => g.game?.postseason === true);
+    if (postLogs.length > 0) signals.push({ type: 'info', txt: `${postLogs.length} playoff games excluded` });
+  }
+
   const homeLogs = allLogs.filter(g => g._venue === 'home');
   const awayLogs = allLogs.filter(g => g._venue === 'away');
   const b2bLogs = allLogs.filter(g => g._restDays === 0);
@@ -2276,7 +2596,8 @@ function renderResults({ stat, side, line, odd, seasons, filters, allLogs, oppDa
   STATE.lastAnalysis = {
     player: STATE.player, stat, side, line, odd,
     finalProb, empProb, poisProb, bayesProb, impl, edge, ev, decision,
-    seasons, filters, N, kelly: kFrac, stakeUnits, predMean, postMean
+    seasons, filters, N, kelly: kFrac, stakeUnits, predMean, postMean,
+    allBlendProbs, // for model selection tracking
   };
   const vCls = v => v > 0.05 ? 'v-good' : v < -0.05 ? 'v-bad' : 'v-neutral';
   const hits = values.map(v => side === 'over' ? v > line : v < line);
@@ -2460,6 +2781,9 @@ function logBet(action) {
     closingOdd, stake, modelProb: a.finalProb, impliedProb: a.impl,
     edge: a.edge, ev: a.ev, decision: a.decision, N: a.N, kelly: a.kelly,
     status: 'pending',
+    // Model selection: save all 4 blend predictions
+    allBlendProbs: a.allBlendProbs || null,
+    activeBlend: STATE.settings.modelBlend,
   };
   STATE.bets.push(bet);
   saveBets();
@@ -3130,7 +3454,339 @@ function setupTutorialHandlers() {
   $('#tut-skip').addEventListener('click', endTutorial);
 }
 
-// === SAVE PROFILE (JSON only, much smaller than HTML snapshot) ===
+// === MODEL SELECTION (auto-tracking) ===
+function computeModelPerformance() {
+  const blends = ['balanced', 'empirical', 'poisson', 'bayes'];
+  const settled = STATE.bets.filter(b => 
+    b.action === 'bet' && 
+    (b.status === 'win' || b.status === 'loss') &&
+    b.allBlendProbs && 
+    b.odd
+  );
+  
+  if (settled.length === 0) return null;
+  
+  const results = {};
+  for (const blend of blends) {
+    let brierSum = 0;
+    let logLossSum = 0;
+    let count = 0;
+    let stakedUnit = 0;
+    let returnUnit = 0;
+    let wouldBet = 0;
+    let wouldWin = 0;
+    
+    const tBet = STATE.settings.thrBet / 100;
+    
+    for (const bet of settled) {
+      const prob = bet.allBlendProbs[blend];
+      if (prob === undefined || prob === null) continue;
+      const actualWin = bet.status === 'win' ? 1 : 0;
+      
+      // Brier score: lower is better
+      brierSum += Math.pow(prob - actualWin, 2);
+      // Log loss: lower is better (clipped to avoid -inf)
+      const clipped = Math.max(0.001, Math.min(0.999, prob));
+      logLossSum += actualWin === 1 ? -Math.log(clipped) : -Math.log(1 - clipped);
+      count++;
+      
+      // ROI hipotético: se esse blend tivesse decidido apostar (edge >= threshold), seguindo Kelly quarter
+      const implied = 1 / bet.odd;
+      const edge = prob - implied;
+      if (edge >= tBet) {
+        const k = Math.max(0, (bet.odd * prob - 1) / (bet.odd - 1));
+        const stake = k * 0.25; // quarter kelly
+        if (stake > 0) {
+          wouldBet++;
+          stakedUnit += stake;
+          if (actualWin) {
+            returnUnit += stake * bet.odd;
+            wouldWin++;
+          }
+        }
+      }
+    }
+    
+    if (count === 0) {
+      results[blend] = null;
+      continue;
+    }
+    
+    results[blend] = {
+      n: count,
+      brier: brierSum / count,
+      logLoss: logLossSum / count,
+      wouldBet,
+      wouldWin,
+      hypotheticalROI: stakedUnit > 0 ? (returnUnit - stakedUnit) / stakedUnit : 0,
+      hypotheticalProfit: returnUnit - stakedUnit,
+      hypotheticalStaked: stakedUnit,
+    };
+  }
+  
+  return results;
+}
+
+function renderModelSelection() {
+  const ctr = $('#model-selection-content');
+  const perf = computeModelPerformance();
+  
+  if (!perf) {
+    ctr.innerHTML = `
+      <div class="empty-state">
+        <strong>Sem dados ainda.</strong><br>
+        Loga bets, marca W/L (manual ou via Auto-Settlement), e volta aqui. 
+        Cada análise computa as 4 blends automaticamente.
+      </div>
+    `;
+    return;
+  }
+  
+  const blends = [
+    { key: 'balanced', name: 'Balanced (33/33/33)', desc: 'Pesos iguais. Padrão.' },
+    { key: 'empirical', name: 'Empirical-Heavy (60/20/20)', desc: 'Peso na taxa histórica.' },
+    { key: 'poisson', name: 'Distribution-Heavy (20/60/20)', desc: 'Peso na distribuição estatística.' },
+    { key: 'bayes', name: 'Bayes-Heavy (20/20/60)', desc: 'Peso na regressão bayesiana.' },
+  ];
+  
+  // Sort by ROI hipotético (descending)
+  const sorted = [...blends].sort((a, b) => {
+    const ra = perf[a.key]?.hypotheticalROI ?? -999;
+    const rb = perf[b.key]?.hypotheticalROI ?? -999;
+    return rb - ra;
+  });
+  
+  const winner = sorted[0];
+  const totalSettled = perf[winner.key]?.n || 0;
+  const isSignificant = totalSettled >= 20;
+  
+  let html = `
+    <div style="margin-bottom: 20px; padding: 14px; background: ${isSignificant ? 'rgba(74,222,128,0.06)' : 'rgba(251,191,36,0.06)'}; border: 1px solid ${isSignificant ? 'rgba(74,222,128,0.4)' : 'rgba(251,191,36,0.4)'};">
+      <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: ${isSignificant ? 'var(--green)' : 'var(--yellow)'}; margin-bottom: 8px;">
+        ${isSignificant ? '✓ Sugestão Estatisticamente Significativa' : '⚠ Amostra Pequena (N < 20)'}
+      </div>
+      <div style="font-size: 13px; line-height: 1.6;">
+        Com base em <strong>${totalSettled} bets resolvidas</strong>, o blend que mais performou foi <strong style="color: var(--accent);">${winner.name}</strong>.
+        ${isSignificant 
+          ? `ROI hipotético <strong style="color: var(--green);">+${pct(perf[winner.key].hypotheticalROI, 1)}</strong> · Brier <strong>${fmt(perf[winner.key].brier, 3)}</strong>. Considera trocar pra esse blend no Settings.` 
+          : `Continua loggando bets — com 20+ resolvidas, a sugestão fica confiável. Hoje é só um indicativo preliminar.`}
+      </div>
+    </div>
+    
+    <h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px;">Ranking dos Blends</h3>
+  `;
+  
+  sorted.forEach((b, i) => {
+    const p = perf[b.key];
+    const isCurrent = STATE.settings.modelBlend === b.key;
+    if (!p) {
+      html += `
+        <div class="concept-card" style="opacity: 0.5;">
+          <h4>${i+1}. ${b.name} ${isCurrent ? '<span style="color: var(--accent);">(atual)</span>' : ''}</h4>
+          <p>sem dados disponíveis</p>
+        </div>
+      `;
+      return;
+    }
+    const roiColor = p.hypotheticalROI > 0 ? 'var(--green)' : p.hypotheticalROI < 0 ? 'var(--red)' : 'var(--ink-dim)';
+    html += `
+      <div class="concept-card" ${i === 0 ? 'style="border-left: 3px solid var(--accent);"' : ''}>
+        <h4>${i+1}. ${b.name} ${isCurrent ? '<span style="color: var(--accent);">(atual)</span>' : ''}</h4>
+        <p style="margin-bottom: 6px; color: var(--ink-faint); font-size: 11px;">${b.desc}</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 8px;">
+          <div>
+            <div style="font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);">ROI Hipotético</div>
+            <div style="font-size: 18px; font-weight: 700; color: ${roiColor};">${p.hypotheticalROI >= 0 ? '+' : ''}${pct(p.hypotheticalROI, 1)}</div>
+          </div>
+          <div>
+            <div style="font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);">Brier Score ${tip('brier')}</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--ink);">${fmt(p.brier, 3)}</div>
+          </div>
+          <div>
+            <div style="font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);">Bets Teria Feito</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--ink);">${p.wouldBet}</div>
+          </div>
+          <div>
+            <div style="font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);">Win Rate Hyp.</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--ink);">${p.wouldBet > 0 ? pct(p.wouldWin / p.wouldBet, 0) : '–'}</div>
+          </div>
+          <div>
+            <div style="font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);">Sample N</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--ink);">${p.n}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `
+    <div style="margin-top: 20px; padding: 12px; background: var(--bg); border: 1px solid var(--line); font-size: 11px; color: var(--ink-faint); line-height: 1.6;">
+      <strong style="color: var(--ink-dim);">Como interpretar:</strong><br>
+      • <strong>ROI Hipotético</strong>: ganho/perda se tu tivesse seguido CEGAMENTE esse blend (apostando quando edge ≥ ${STATE.settings.thrBet}%, stake quarter Kelly).<br>
+      • <strong>Brier Score</strong>: medida técnica de calibração de probabilidades. <strong>Menor = melhor</strong>. Score abaixo de 0.25 é bom.<br>
+      • <strong>Bets Teria Feito</strong>: quantas das bets resolvidas esse blend teria recomendado apostar.<br>
+      • <strong>Importante</strong>: ROI hipotético assume que tu apostou quarter Kelly em TODAS as bets que o blend recomendou. Performance real depende de stakes que tu usou.
+    </div>
+  `;
+  
+  ctr.innerHTML = html;
+}
+
+// === LINE SHOPPING ===
+async function renderLineShopInit() {
+  if (!$('#lineshop-date').value) {
+    const today = new Date().toISOString().slice(0, 10);
+    $('#lineshop-date').value = today;
+  }
+}
+
+async function loadLineShopGames() {
+  const date = $('#lineshop-date').value;
+  if (!date) { alert('Selecione uma data'); return; }
+  $('#lineshop-meta').innerHTML = '<span class="loader"></span>carregando jogos';
+  $('#lineshop-games').innerHTML = '';
+  $('#lineshop-props').innerHTML = '';
+  try {
+    const data = await bdlFetch('/games', { 'dates[]': date, per_page: 25 });
+    if (!data.data || !data.data.length) {
+      $('#lineshop-games').innerHTML = '<div class="empty-state">Nenhum jogo encontrado nessa data.</div>';
+      $('#lineshop-meta').textContent = '0 jogos';
+      return;
+    }
+    const games = data.data;
+    const html = games.map(g => `
+      <button class="welcome-opt lineshop-game-btn" data-game-id="${g.id}" style="margin-bottom: 8px;">
+        <span class="opt-title">${g.visitor_team?.abbreviation || '?'} @ ${g.home_team?.abbreviation || '?'}</span>
+        <span class="opt-desc">${g.visitor_team?.full_name || ''} at ${g.home_team?.full_name || ''} · ${g.status}</span>
+      </button>
+    `).join('');
+    $('#lineshop-games').innerHTML = `<h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px;">Jogos de ${date}</h3>${html}`;
+    $('#lineshop-meta').textContent = `${games.length} jogos`;
+    
+    document.querySelectorAll('.lineshop-game-btn').forEach(btn => {
+      btn.addEventListener('click', () => loadLineShopProps(btn.dataset.gameId));
+    });
+  } catch (err) {
+    $('#lineshop-games').innerHTML = `<div style="color: var(--red); padding: 14px;">Erro: ${err.message}</div>`;
+    $('#lineshop-meta').textContent = 'erro';
+  }
+}
+
+async function loadLineShopProps(gameId) {
+  $('#lineshop-meta').innerHTML = '<span class="loader"></span>buscando props';
+  $('#lineshop-props').innerHTML = '<div style="padding: 14px; color: var(--ink-dim);">carregando props das casas...</div>';
+  try {
+    const data = await bdlFetch('/v2/odds/player_props', { game_id: gameId }, false);
+    if (!data.data || !data.data.length) {
+      $('#lineshop-props').innerHTML = '<div class="empty-state">Nenhuma prop encontrada pra esse jogo. Pode ser que ainda não tenha sido lançado.</div>';
+      $('#lineshop-meta').textContent = '0 props';
+      return;
+    }
+    
+    // Group by player_id + prop_type + line_value
+    const grouped = {};
+    for (const p of data.data) {
+      if (p.market?.type !== 'over_under') continue; // skip milestones for now
+      const key = `${p.player_id}::${p.prop_type}::${p.line_value}`;
+      if (!grouped[key]) grouped[key] = { player_id: p.player_id, prop_type: p.prop_type, line_value: p.line_value, vendors: [] };
+      grouped[key].vendors.push({
+        vendor: p.vendor,
+        over: p.market.over_odds,
+        under: p.market.under_odds,
+        updated: p.updated_at,
+      });
+    }
+    
+    const props = Object.values(grouped);
+    if (!props.length) {
+      $('#lineshop-props').innerHTML = '<div class="empty-state">Nenhuma prop over/under encontrada.</div>';
+      return;
+    }
+    
+    // Need player info — fetch unique player IDs
+    const playerIds = [...new Set(props.map(p => p.player_id))];
+    const playerMap = {};
+    // Fetch in batches of 25
+    for (let i = 0; i < playerIds.length; i += 25) {
+      const batch = playerIds.slice(i, i+25);
+      try {
+        const pd = await bdlFetch('/players', { 'player_ids[]': batch, per_page: 100 });
+        (pd.data || []).forEach(p => playerMap[p.id] = p);
+      } catch(e) { /* continue */ }
+    }
+    
+    // Sort by player name
+    props.sort((a, b) => {
+      const pa = playerMap[a.player_id];
+      const pb = playerMap[b.player_id];
+      const na = pa ? pa.last_name : 'z';
+      const nb = pb ? pb.last_name : 'z';
+      return na.localeCompare(nb);
+    });
+    
+    // Build HTML — for each prop, find best over and best under odd
+    function americanToDecimal(am) {
+      if (am > 0) return 1 + am / 100;
+      return 1 + 100 / Math.abs(am);
+    }
+    
+    const html = props.map(p => {
+      const player = playerMap[p.player_id];
+      const playerName = player ? `${player.first_name} ${player.last_name}` : `Player ${p.player_id}`;
+      const teamAbbr = player?.team?.abbreviation || '';
+      
+      // Find best over and best under
+      let bestOver = null, bestUnder = null;
+      for (const v of p.vendors) {
+        if (v.over && (!bestOver || americanToDecimal(v.over) > americanToDecimal(bestOver.over))) bestOver = v;
+        if (v.under && (!bestUnder || americanToDecimal(v.under) > americanToDecimal(bestUnder.under))) bestUnder = v;
+      }
+      
+      // Build vendor rows
+      const vendorRows = p.vendors.map(v => {
+        const isBestOver = bestOver && bestOver.vendor === v.vendor;
+        const isBestUnder = bestUnder && bestUnder.vendor === v.vendor;
+        const overDec = v.over ? americanToDecimal(v.over) : null;
+        const underDec = v.under ? americanToDecimal(v.under) : null;
+        return `
+          <tr>
+            <td>${v.vendor}</td>
+            <td style="${isBestOver ? 'background:rgba(74,222,128,0.1); color:var(--green); font-weight:700;' : ''}">${v.over !== null && v.over !== undefined ? `${v.over > 0 ? '+' : ''}${v.over} (${fmt(overDec, 2)})` : '–'}</td>
+            <td style="${isBestUnder ? 'background:rgba(74,222,128,0.1); color:var(--green); font-weight:700;' : ''}">${v.under !== null && v.under !== undefined ? `${v.under > 0 ? '+' : ''}${v.under} (${fmt(underDec, 2)})` : '–'}</td>
+          </tr>
+        `;
+      }).join('');
+      
+      return `
+        <details style="margin-bottom: 8px;">
+          <summary>▸ <strong style="color: var(--accent);">${playerName}</strong> ${teamAbbr ? `<span style="color:var(--ink-faint); font-size:10px;">${teamAbbr}</span>` : ''} · ${p.prop_type.toUpperCase()} ${p.line_value} <span style="color:var(--ink-faint); font-size:10px;">(${p.vendors.length} casas)</span></summary>
+          <div class="details-body" style="padding: 0;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Casa</th><th>Over</th><th>Under</th>
+                </tr>
+              </thead>
+              <tbody>${vendorRows}</tbody>
+            </table>
+            <div style="padding: 8px; font-size: 10px; color: var(--ink-faint);">
+              <strong style="color: var(--green);">Melhor Over:</strong> ${bestOver ? `${bestOver.vendor} (${fmt(americanToDecimal(bestOver.over), 2)})` : '–'} ·
+              <strong style="color: var(--green);">Melhor Under:</strong> ${bestUnder ? `${bestUnder.vendor} (${fmt(americanToDecimal(bestUnder.under), 2)})` : '–'}
+            </div>
+          </div>
+        </details>
+      `;
+    }).join('');
+    
+    $('#lineshop-props').innerHTML = `<h3 style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px;">${props.length} Player Props · Click pra expandir</h3>${html}`;
+    $('#lineshop-meta').textContent = `${props.length} props · ${playerIds.length} jogadores`;
+  } catch (err) {
+    $('#lineshop-props').innerHTML = `<div style="color: var(--red); padding: 14px;">Erro: ${err.message}</div>`;
+    $('#lineshop-meta').textContent = 'erro';
+  }
+}
+
+
 async function downloadSnapshot() {
   STATE.profile.iterations = (STATE.profile.iterations || 0) + 1;
   STATE.profile.lastSavedAt = new Date().toISOString();
@@ -3320,6 +3976,10 @@ if (openTutorialBtn) {
     renderTutStep();
   });
 }
+
+// Line Shop button
+const lineShopBtn = document.getElementById('lineshop-load');
+if (lineShopBtn) lineShopBtn.addEventListener('click', loadLineShopGames);
 
 // Mark dirty when settings save
 $('#save-settings').addEventListener('click', () => { if (typeof markDirty === 'function') markDirty(); });

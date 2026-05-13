@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.7 // NBA · Auto-Settle Fixed</title>
+<title>PROP TERMINAL v13.7.1 // NBA · Settle Date Fix</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1095,7 +1095,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.7 · Auto-Settle Fixed · Matchup Refined</span>
+      <span class="tag">v13.7.1 · Settle Date Fix · Tracker Button</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1334,6 +1334,16 @@
       </div>
       <div class="panel-body">
         <div class="tracker-summary" id="tracker-summary"></div>
+
+        <div id="tracker-settle-bar" style="background: var(--bg); border: 1px solid var(--line-2); padding: 10px 12px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="font-size: 11px; color: var(--ink-dim); line-height: 1.4;">
+            <strong style="color: var(--ink);" id="tracker-pending-count">0</strong> pending · fetches game results from the API and marks Win/Loss/Void automatically.
+            <span id="tracker-settle-meta" style="display:block; margin-top:4px; color: var(--accent);"></span>
+          </div>
+          <button class="primary" id="tracker-settle-btn" style="width: auto; padding: 8px 16px; font-size: 11px; white-space: nowrap;">⚡ Run Auto-Settle</button>
+        </div>
+        <div id="tracker-settle-result" style="margin-bottom: 14px;"></div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <h3 style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim);">All Bets</h3>
           <div style="display:flex; gap:8px;">
@@ -4316,6 +4326,12 @@ function renderTracker() {
   const roi = totalStaked > 0 ? profit / totalStaked : 0;
   const winRate = settled.length > 0 ? wins / settled.length : 0;
   const avgCLV = clvCount > 0 ? totalCLV / clvCount : null;
+  // v13.7.1: update the pending count + show/hide the settle bar
+  const pendingCountEl = el('#tracker-pending-count');
+  if (pendingCountEl) pendingCountEl.textContent = pending.length;
+  const settleBarEl = el('#tracker-settle-bar');
+  if (settleBarEl) settleBarEl.style.display = pending.length > 0 ? 'flex' : 'none';
+
   $('#tracker-summary').innerHTML = `
     <div class="tracker-cell"><div class="lbl">Total Bets</div><div class="val">${bets.length}</div><div class="sub">${settled.length} settled · ${pending.length} pending</div></div>
     <div class="tracker-cell"><div class="lbl">Win Rate</div><div class="val ${winRate>=0.55?'v-good':winRate>=0.50?'v-neutral':'v-bad'}">${pct(winRate,1)}</div><div class="sub">${wins}W · ${losses}L</div></div>
@@ -5508,15 +5524,22 @@ function resetProfile() {
 //        robustness over the user's paste, which used absolute distance — that could pick
 //        a game before the bet was placed). Only fall back to before-bet if no after-bet exists.
 //     4. Flag ambiguous closest-date matches so user can verify in Tracker.
-async function runAutoSettlement() {
+async function runAutoSettlement(opts) {
+  // v13.7.1: opts.metaSel + opts.resultSel let callers redirect output to a different container
+  // (e.g. the Tracker tab). Defaults to the Profile tab containers.
+  const metaSel = (opts && opts.metaSel) || '#settle-meta';
+  const resultSel = (opts && opts.resultSel) || '#settle-result';
+  const setMeta = (html) => { const n = el(metaSel); if (n) n.innerHTML = html; };
+  const setMetaText = (text) => { const n = el(metaSel); if (n) n.textContent = text; };
+  const setResult = (html) => { const n = el(resultSel); if (n) n.innerHTML = html; };
   if (!STATE.apiKey) { alert('Set API key in Settings first'); return; }
   const pending = STATE.bets.filter(b => b.action === 'bet' && b.status === 'pending');
   if (!pending.length) {
-    $('#settle-result').innerHTML = '<div class="empty-state">No pending bets to settle.</div>';
+    setResult('<div class="empty-state">No pending bets to settle.</div>');
     return;
   }
-  $('#settle-meta').innerHTML = '<span class="loader"></span>checking ' + pending.length + ' bets';
-  $('#settle-result').innerHTML = '<div style="color: var(--ink-dim); padding: 14px;">Fetching results...</div>';
+  setMeta('<span class="loader"></span>checking ' + pending.length + ' bets');
+  setResult('<div style="color: var(--ink-dim); padding: 14px;">Fetching results...</div>');
 
   let settled = 0, errors = 0, notReady = 0, ambiguous = 0;
   const lines = [];
@@ -5538,9 +5561,13 @@ async function runAutoSettlement() {
       }
 
       // Search window: 1 day before bet (covers backfill cases) → 14 days after.
-      // Bounded forward search avoids settling against next-series games.
-      const windowStart = new Date(betDate.getTime() - 1 * 24 * 60 * 60 * 1000);
-      const windowEnd = new Date(betDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+      // v13.7.1 FIX: use DATE-ONLY (midnight UTC) bounds. The previous timestamp-based window
+      // excluded same-day games because game.date is "YYYY-MM-DD" (midnight UTC) and a bet
+      // logged at e.g. 15:00 UTC made midnight UTC look "before" the bet, dropping the target.
+      const betDateStr = bet.timestamp.slice(0, 10); // "YYYY-MM-DD"
+      const betDateMidnight = new Date(betDateStr + 'T00:00:00Z');
+      const windowStart = new Date(betDateMidnight.getTime() - 1 * 24 * 60 * 60 * 1000);
+      const windowEnd = new Date(betDateMidnight.getTime() + 14 * 24 * 60 * 60 * 1000);
 
       // Determine seasons to try: use original analysis seasons if available, else fall back to date heuristic
       let seasonsToTry;
@@ -5611,14 +5638,18 @@ async function runAutoSettlement() {
       }
 
       if (!matched) {
-        // Fallback: prefer games on/after bet timestamp (typical workflow: user logs bet
-        // before game). Only fall back to before-bet if nothing exists after.
-        const afterBet = candidates.filter(g => new Date(g.game.date) >= betDate);
+        // Fallback: prefer games on/after bet date (typical workflow: user logs bet
+        // before game). Only fall back to before-bet if nothing exists on/after.
+        // v13.7.1 FIX: compare DATE STRINGS (YYYY-MM-DD), not timestamps — otherwise
+        // same-day games whose game.date is midnight UTC look "before" a bet timestamped
+        // later in the day and get dropped from afterBet, causing the algorithm to match
+        // the wrong (next) game in a series.
+        const afterBet = candidates.filter(g => g.game.date >= betDateStr);
         if (afterBet.length) {
           afterBet.sort((a, b) => new Date(a.game.date) - new Date(b.game.date));
           matched = afterBet[0];
         } else {
-          candidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDate) - Math.abs(new Date(b.game.date) - betDate));
+          candidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDateMidnight) - Math.abs(new Date(b.game.date) - betDateMidnight));
           matched = candidates[0];
         }
         matchType = 'closest-date';
@@ -5627,9 +5658,9 @@ async function runAutoSettlement() {
         if (candidates.length >= 2 && !bet.opponentTeamId) {
           const otherCandidates = candidates.filter(g => g !== matched);
           if (otherCandidates.length) {
-            otherCandidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDate) - Math.abs(new Date(b.game.date) - betDate));
-            const firstCloseness = Math.abs(new Date(matched.game.date) - betDate);
-            const secondCloseness = Math.abs(new Date(otherCandidates[0].game.date) - betDate);
+            otherCandidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDateMidnight) - Math.abs(new Date(b.game.date) - betDateMidnight));
+            const firstCloseness = Math.abs(new Date(matched.game.date) - betDateMidnight);
+            const secondCloseness = Math.abs(new Date(otherCandidates[0].game.date) - betDateMidnight);
             if (Math.abs(secondCloseness - firstCloseness) < 2 * 24 * 60 * 60 * 1000) {
               ambiguous++;
             }
@@ -5669,8 +5700,8 @@ async function runAutoSettlement() {
   const ambiguousNote = ambiguous > 0
     ? ` · <strong style="color: var(--yellow);">${ambiguous}</strong> ambiguous (verifique no Tracker)`
     : '';
-  $('#settle-meta').textContent = `${settled} settled · ${notReady} pending · ${errors} errors`;
-  $('#settle-result').innerHTML = `
+  setMetaText(`${settled} settled · ${notReady} pending · ${errors} errors`);
+  setResult(`
     <div style="font-size: 12px; line-height: 1.5;">
       <div style="margin-bottom: 10px; color: var(--ink-dim);">
         <strong style="color: var(--green);">${settled}</strong> settled ·
@@ -5680,14 +5711,33 @@ async function runAutoSettlement() {
       ${lines.join('')}
       ${ambiguous > 0 ? '<div style="margin-top:10px; padding:10px; border-left: 2px solid var(--yellow); background:rgba(251,191,36,0.05); color:var(--ink-dim); font-size:11px;">⚠ Algumas bets foram resolvidas pelo jogo mais próximo da data, sem confirmação de oponente. Para bets futuras, salvar o opponent no momento da análise garante settle preciso.</div>' : ''}
     </div>
-  `;
+  `);
+  // Re-render tracker so updated statuses show immediately
+  if (typeof renderTracker === 'function' && !$('#tab-tracker').classList.contains('hidden')) {
+    renderTracker();
+  }
 }
 
 // === EVENT WIRING ===
 $('#snapshot-btn').addEventListener('click', downloadSnapshot);
 $('#import-btn').addEventListener('click', importSnapshot);
 $('#reset-profile-btn').addEventListener('click', resetProfile);
-$('#auto-settle-btn').addEventListener('click', runAutoSettlement);
+$('#auto-settle-btn').addEventListener('click', () => runAutoSettlement());
+// v13.7.1: Tracker tab also has its own settle button so users don't need to hunt for it
+const trackerSettleBtn = document.getElementById('tracker-settle-btn');
+if (trackerSettleBtn) {
+  trackerSettleBtn.addEventListener('click', async () => {
+    trackerSettleBtn.disabled = true;
+    const originalText = trackerSettleBtn.textContent;
+    trackerSettleBtn.textContent = '⏳ Settling...';
+    try {
+      await runAutoSettlement({ metaSel: '#tracker-settle-meta', resultSel: '#tracker-settle-result' });
+    } finally {
+      trackerSettleBtn.disabled = false;
+      trackerSettleBtn.textContent = originalText;
+    }
+  });
+}
 
 // Tutorial button in Learn tab
 const openTutorialBtn = document.getElementById('open-tutorial-btn');

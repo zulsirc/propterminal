@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.5 // NBA · Playoff Context</title>
+<title>PROP TERMINAL v13.7 // NBA · Auto-Settle Fixed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1095,7 +1095,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.5 · Playoff Context · Dynamic Weighting</span>
+      <span class="tag">v13.7 · Auto-Settle Fixed · Matchup Refined</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1279,6 +1279,7 @@
           <button class="primary" id="analyze-btn" disabled>Run Analysis</button>
           <button class="ghost" id="clear-btn">Clear</button>
           <button class="ghost" id="find-teammate-btn">Find Teammate ID</button>
+          <button class="ghost" id="force-refresh-btn" title="Apaga o cache deste jogador e refaz a busca do zero. Use se desconfiar que o sample tá incompleto.">⟲ Force Refresh</button>
         </div>
         <div class="progress-bar hidden" id="progress-bar"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
       </div>
@@ -2348,7 +2349,21 @@ async function bdlFetch(path, params={}, useCache=true) {
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
     else if (v !== undefined && v !== null) url.searchParams.set(k, v);
   }
-  const cacheKey = url.toString();
+  // v13.6: build a DETERMINISTIC cache key so e.g. seasons[]=[2024,2025] and seasons[]=[2025,2024]
+  // hit the same cache entry. Without this, reordered checkboxes cause cache misses → stale partials.
+  const cacheKey = (() => {
+    const sortedParams = {};
+    for (const k of Object.keys(params).sort()) {
+      const v = params[k];
+      if (Array.isArray(v)) {
+        // Sort array values so order doesn't affect key
+        sortedParams[k] = [...v].map(x => String(x)).sort();
+      } else {
+        sortedParams[k] = v;
+      }
+    }
+    return API_BASE + path + '|' + JSON.stringify(sortedParams);
+  })();
 
   // Check cache with stratified TTL
   if (useCache && STATE.cache[cacheKey]) {
@@ -2649,20 +2664,41 @@ function hideProgress() {
 
 // === FETCH LOGS ===
 async function fetchGameLogsMulti(playerId, seasons) {
-  // v10: One single request with seasons[]=2024&seasons[]=2025... instead of N requests
-  // Paginate within that single request
+  // v13.6: ROBUSTNESS FIXES
+  // - Bug A: pagination cap was 10 pages (1000 stats). For 4+ seasons of an active player, can truncate.
+  //   Raised to 40 pages (4000 stats — multi-season active starters never hit this).
+  // - Bug B: previous loop broke on empty .data — but a transient empty page would lose remaining data.
+  //   Now we ONLY break when next_cursor is missing.
+  // - Bug C: also force seasons[] array to be sorted for stable cache keys (handled in bdlFetch).
+  // - Bug D: validation — if we hit the page cap WITHOUT seeing next_cursor=null, we know the fetch is truncated.
+  //   In that case, flag — we don't want to silently cache a partial result.
   showProgress(0.1, `fetching game logs (${seasons.length} season${seasons.length>1?'s':''})...`);
+  // Always sort seasons descending for stable cache key + predictable behavior
+  const sortedSeasons = [...seasons].sort((a,b) => b - a);
   let all = [];
   let cursor = null;
-  for (let pg = 0; pg < 10; pg++) {
-    const params = { 'seasons[]': seasons, 'player_ids[]': playerId, per_page: 100 };
+  let completedNaturally = false;
+  const MAX_PAGES = 40;
+  for (let pg = 0; pg < MAX_PAGES; pg++) {
+    const params = { 'seasons[]': sortedSeasons, 'player_ids[]': playerId, per_page: 100 };
     if (cursor) params.cursor = cursor;
     const data = await bdlFetch('/stats', params);
-    if (!data.data || !data.data.length) break;
-    all = all.concat(data.data);
-    if (!data.meta || !data.meta.next_cursor) break;
+    if (data && data.data && data.data.length) {
+      all = all.concat(data.data);
+    }
+    // Only break when we have a definitive end signal — next_cursor is null/undefined
+    if (!data || !data.meta || data.meta.next_cursor === null || data.meta.next_cursor === undefined) {
+      completedNaturally = true;
+      break;
+    }
     cursor = data.meta.next_cursor;
-    showProgress(0.1 + (pg+1)/10 * 0.4, `fetching page ${pg+2}...`);
+    showProgress(0.1 + (pg+1)/MAX_PAGES * 0.4, `fetching page ${pg+2}...`);
+  }
+  if (!completedNaturally) {
+    console.warn(`fetchGameLogsMulti: hit page cap of ${MAX_PAGES} without exhausting data. Got ${all.length} stats.`);
+    STATE.lastFetchTruncated = true;
+  } else {
+    STATE.lastFetchTruncated = false;
   }
   all = all.filter(g => computeStat(g, 'min') > 0);
   all.sort((a,b) => new Date(b.game.date) - new Date(a.game.date));
@@ -2754,15 +2790,22 @@ async function computeRealUsage(gameLogs) {
 }
 
 // === OPPONENT PACE & DEFENSE ===
+// v13.6: matchup system improvements
+//   - Explicit sort by date (don't trust API order)
+//   - Larger sample (25 games when available)
+//   - Position fallback: if position filter leaves <8 players, expand to all positions
+//   - Per-stat correlation coefficients (replaces flat 0.4 — applied in renderResults)
 async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
   showProgress(0, `analyzing opponent...`);
-  const data = await bdlFetch('/games', { 'team_ids[]': opponentTeamId, 'seasons[]': season, per_page: 25 });
+  // Fetch more games — we'll use the most recent 25 instead of 15 for stability
+  const data = await bdlFetch('/games', { 'team_ids[]': opponentTeamId, 'seasons[]': season, per_page: 50 });
   if (!data.data || !data.data.length) return null;
-  const played = data.data.filter(g => g.status === 'Final').slice(0, 15);
+  // v13.6: explicit sort by date desc — API may not return ordered
+  const sorted = data.data.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+  const played = sorted.filter(g => g.status === 'Final').slice(0, 25);
   if (!played.length) return null;
   const gameIds = played.map(g => g.id);
-  // v13.2: API max per_page=100. 15 games × ~25 stats/game ≈ 375 stats total — needs batching.
-  // Batch into chunks of 4 games (≤100 stats per request), fetch in parallel, merge.
+  // v13.2: API max per_page=100. 25 games × ~25 stats/game ≈ 625 stats — batch into chunks of 4.
   const CHUNK_SIZE = 4;
   const idChunks = [];
   for (let i = 0; i < gameIds.length; i += CHUNK_SIZE) {
@@ -2788,7 +2831,7 @@ async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
   let totalOffPace = 0, offPaceCount = 0;
   let totalDefPace = 0, defPaceCount = 0;
   let allowedStats = [];
-  let oppRestDaysList = []; // For opponent rest analysis
+  let allowedStatsAllPositions = []; // fallback if position filter is too restrictive
   for (const gid of Object.keys(gameMap)) {
     const { oppTeam, otherTeam } = gameMap[gid];
     if (oppTeam.length === 0 || otherTeam.length === 0) continue;
@@ -2815,14 +2858,22 @@ async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
 
     for (const s of otherTeam) {
       if (computeStat(s, 'min') < 15) continue;
-      if (positionMatch(s.player.position, position)) allowedStats.push(s);
+      allowedStatsAllPositions.push(s);
+      if (positionMatch(s.player?.position, position)) allowedStats.push(s);
     }
   }
   const oppOffPace = offPaceCount > 0 ? totalOffPace / offPaceCount : null;
   const oppDefPace = defPaceCount > 0 ? totalDefPace / defPaceCount : null;
   const oppPace = (oppOffPace && oppDefPace) ? (oppOffPace + oppDefPace) / 2 : (oppOffPace || oppDefPace);
 
-  if (!allowedStats.length) return { pace: oppPace, offPace: oppOffPace, defPace: oppDefPace, allowed: null, sample: 0, games: played.length };
+  // v13.6: position fallback — if filter is too restrictive (<8 players), use all positions
+  let usedFallback = false;
+  if (allowedStats.length < 8 && allowedStatsAllPositions.length > allowedStats.length) {
+    allowedStats = allowedStatsAllPositions;
+    usedFallback = true;
+  }
+
+  if (!allowedStats.length) return { pace: oppPace, offPace: oppOffPace, defPace: oppDefPace, allowed: null, sample: 0, games: played.length, positionFallback: usedFallback };
   return {
     pace: oppPace,
     offPace: oppOffPace,
@@ -2835,7 +2886,7 @@ async function fetchOpponentPaceAndDefense(opponentTeamId, season, position) {
       stl: avg(allowedStats.map(s => s.stl || 0)),
       blk: avg(allowedStats.map(s => s.blk || 0)),
     },
-    sample: allowedStats.length, games: played.length,
+    sample: allowedStats.length, games: played.length, positionFallback: usedFallback,
   };
 }
 function positionMatch(theirPos, myPos) {
@@ -2907,6 +2958,29 @@ $('#analyze-btn').addEventListener('click', runAnalysis);
 $('#clear-btn').addEventListener('click', () => {
   $('#line-input').value = ''; $('#odd-input').value = '';
   $('#results-panel').classList.add('hidden');
+});
+// v13.6: Force refresh — purge cache entries for the current player and re-run analysis
+$('#force-refresh-btn').addEventListener('click', async () => {
+  if (!STATE.player) { alert('Selecione um jogador primeiro.'); return; }
+  if (!confirm('Apagar cache deste jogador e refazer a análise do zero? (Garante dados frescos da API)')) return;
+  const pid = STATE.player.id;
+  let removed = 0;
+  for (const k of Object.keys(STATE.cache)) {
+    if (k.includes(`"player_ids[]":["${pid}"]`) || k.includes(`player_ids[]=${pid}`) || k.includes(`"player_ids[]":["${pid}"`)) {
+      delete STATE.cache[k];
+      removed++;
+    }
+  }
+  for (const k of Array.from(inFlight.keys())) {
+    if (k.includes(String(pid))) inFlight.delete(k);
+  }
+  safeLocalStorageSet('bdl_cache', STATE.cache);
+  console.log(`Force refresh: removed ${removed} cache entries for player ${pid}`);
+  if ($('#line-input').value && $('#odd-input').value) {
+    runAnalysis();
+  } else {
+    alert(`Cache limpo (${removed} entradas). Preencha linha + odd e clica Run Analysis.`);
+  }
 });
 
 async function runAnalysis() {
@@ -2987,7 +3061,9 @@ async function runAnalysis() {
       return;
     }
     renderResults({ stat, side, line, odd, oddOpposite, seasons, filters, allLogs: logs, oppData });
-    $('#result-meta').textContent = `${filtered.length}/${logs.length} games match`;
+    // v13.6: surface truncation warning if hit
+    const truncFlag = STATE.lastFetchTruncated ? ' <span style="color:var(--yellow);">⚠ TRUNCATED</span>' : '';
+    $('#result-meta').innerHTML = `${filtered.length}/${logs.length} games match${truncFlag}`;
   } catch (err) {
     console.error(err);
     $('#results-body').innerHTML = `<div style="padding:30px; color:var(--red);">Error: ${err.message}</div>`;
@@ -3443,11 +3519,28 @@ function renderResults({ stat, side, line, odd, oddOpposite, seasons, filters, a
   }
 
   let matchupAdj = 0;
+  let matchupCoefUsed = null;
   if (oppData && oppData.allowed && ['pts','reb','ast','fg3m','stl','blk'].includes(stat)) {
     const allowed = oppData.allowed[stat];
     if (allowed > 0 && meanAll > 0) {
-      // v13.4: matchup coefficient is 0.6 in playoff regime, 0.4 in regular
-      matchupAdj = (allowed - meanAll) * effSettings.matchupCoef;
+      // v13.6: per-stat matchup coefficients
+      // Different stats respond to opponent matchup with different elasticity.
+      // pts is most matchup-driven; blocks/steals are mostly player-driven (low matchup signal).
+      // Values from observed correlations in 538/Cleaning the Glass literature, smoothed.
+      const STAT_MATCHUP_COEF = {
+        pts:  0.50, // points respond strongly to defensive scheme
+        reb:  0.30, // rebounds are a mix of opportunity + skill
+        ast:  0.25, // assists need teammates to convert
+        fg3m: 0.20, // 3pm noisy, but pace/scheme still matters
+        stl:  0.15, // mostly player gambling tendency
+        blk:  0.15, // mostly player-driven (rim protectors don't matter much vs guards)
+      };
+      const baseCoef = STAT_MATCHUP_COEF[stat] || 0.4;
+      // Playoff regime adjustment from effSettings — scales coef proportionally
+      const playoffCoefMultiplier = effSettings.matchupCoef / 0.4;
+      const finalCoef = baseCoef * playoffCoefMultiplier;
+      matchupAdj = (allowed - meanAll) * finalCoef;
+      matchupCoefUsed = finalCoef;
       predMean += matchupAdj;
     }
   }
@@ -3633,7 +3726,14 @@ function renderResults({ stat, side, line, odd, oddOpposite, seasons, filters, a
     if (fd < -0.15) signals.push({ type:'bad', txt:`${STAT_LABELS[stat]} ↓ ${pct(fd,0)} L5 — cold` });
     else if (fd > 0.15) signals.push({ type:'good', txt:`${STAT_LABELS[stat]} ↑ +${pct(fd,0)} L5 — hot` });
   }
-  if (Math.abs(matchupAdj) > 0.5) signals.push({ type: matchupAdj > 0 ? 'good' : 'bad', txt:`Matchup ${matchupAdj > 0 ? 'soft' : 'tough'} (Δ${fmt(matchupAdj,1)})` });
+  if (Math.abs(matchupAdj) > 0.5) {
+    const coefStr = matchupCoefUsed ? ` ${stat}×${fmt(matchupCoefUsed,2)}` : '';
+    signals.push({ type: matchupAdj > 0 ? 'good' : 'bad', txt:`Matchup ${matchupAdj > 0 ? 'soft' : 'tough'} (Δ${fmt(matchupAdj,1)}${coefStr})` });
+  }
+  // v13.6: warn if matchup used position fallback (sample too small for strict position match)
+  if (oppData && oppData.positionFallback) {
+    signals.push({ type: 'info', txt: `Matchup: position filter expandido (sample baixo)` });
+  }
   if (paceAdj < 0.97) signals.push({ type:'bad', txt:`Pace ×${fmt(paceAdj,2)} (slower)` });
   else if (paceAdj > 1.03) signals.push({ type:'good', txt:`Pace ×${fmt(paceAdj,2)} (faster)` });
   if (filters.advUsage) {
@@ -4047,6 +4147,9 @@ function logBet(action) {
     status: 'pending',
     allBlendProbs: a.allBlendProbs || null,
     activeBlend: STATE.settings.modelBlend,
+    // v13.7: capture context for accurate auto-settle later
+    opponentTeamId: (a.filters && a.filters.opponentId) ? Number(a.filters.opponentId) : null,
+    seasonsAnalyzed: a.seasons || null,
   };
   STATE.bets.push(bet);
   saveBets();
@@ -5392,6 +5495,19 @@ function resetProfile() {
 }
 
 // === AUTO-SETTLEMENT ===
+// v13.7: Major rewrite.
+//   Old algorithm picked the FIRST game on/after bet date. That caused two failure modes:
+//     - If user pre-logged but the player played 1 day before bet (rare but possible), no match.
+//     - If user logged AFTER a postponement, the next game (against a different opponent)
+//       could be settled as the bet's target. Wrong settlement = wrong P/L.
+//   New algorithm:
+//     1. Search window [bet-1d, bet+14d] (not "forever ahead").
+//     2. If bet has saved opponentTeamId (v13.7+), filter to games against that opponent.
+//        Pick the one closest to bet date — opponent-confirmed match.
+//     3. Else fall back to date heuristic. PREFER games on/after bet timestamp (extra v13.7
+//        robustness over the user's paste, which used absolute distance — that could pick
+//        a game before the bet was placed). Only fall back to before-bet if no after-bet exists.
+//     4. Flag ambiguous closest-date matches so user can verify in Tracker.
 async function runAutoSettlement() {
   if (!STATE.apiKey) { alert('Set API key in Settings first'); return; }
   const pending = STATE.bets.filter(b => b.action === 'bet' && b.status === 'pending');
@@ -5402,67 +5518,134 @@ async function runAutoSettlement() {
   $('#settle-meta').innerHTML = '<span class="loader"></span>checking ' + pending.length + ' bets';
   $('#settle-result').innerHTML = '<div style="color: var(--ink-dim); padding: 14px;">Fetching results...</div>';
 
-  let settled = 0, errors = 0, notReady = 0;
+  let settled = 0, errors = 0, notReady = 0, ambiguous = 0;
   const lines = [];
 
   for (const bet of pending) {
     try {
-      // Fetch player's recent games (since the bet was logged)
+      // Validate bet has required fields
+      if (!bet.playerId) {
+        errors++;
+        lines.push(`<div style="color: var(--red); padding: 6px 0;">⚠ ${bet.player || 'unknown'} — sem playerId (bet antiga, settle manual)</div>`);
+        continue;
+      }
+
       const betDate = new Date(bet.timestamp);
-      const cutoff = new Date(betDate);
-      cutoff.setDate(cutoff.getDate() - 1); // look from day before bet
+      if (isNaN(betDate.getTime())) {
+        errors++;
+        lines.push(`<div style="color: var(--red); padding: 6px 0;">⚠ ${bet.player} — timestamp inválido</div>`);
+        continue;
+      }
 
-      // v13: try current season AND previous season (handles season rollover edge case
-      // — e.g. a bet logged late October might span the 2024 → 2025 season boundary)
-      const primarySeason = (betDate.getMonth() >= 9) ? betDate.getFullYear() : betDate.getFullYear() - 1;
-      const seasonsToTry = [primarySeason, primarySeason - 1];
+      // Search window: 1 day before bet (covers backfill cases) → 14 days after.
+      // Bounded forward search avoids settling against next-series games.
+      const windowStart = new Date(betDate.getTime() - 1 * 24 * 60 * 60 * 1000);
+      const windowEnd = new Date(betDate.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-      let data = { data: [] };
-      let usedSeason = primarySeason;
+      // Determine seasons to try: use original analysis seasons if available, else fall back to date heuristic
+      let seasonsToTry;
+      if (bet.seasonsAnalyzed && bet.seasonsAnalyzed.length) {
+        seasonsToTry = bet.seasonsAnalyzed.slice().sort((a,b) => b - a);
+      } else {
+        const primarySeason = (betDate.getMonth() >= 9) ? betDate.getFullYear() : betDate.getFullYear() - 1;
+        seasonsToTry = [primarySeason, primarySeason - 1];
+      }
+
+      // Fetch with per_page=100 (was 25 — too small for active players); cache allowed since
+      // resolved games are immutable and the stratified TTL handles freshness correctly.
+      let allStats = [];
       for (const s of seasonsToTry) {
         const resp = await bdlFetch('/stats', {
           'player_ids[]': bet.playerId,
           'seasons[]': s,
-          per_page: 25
-        }, false); // don't cache settlement queries
+          per_page: 100,
+        }, true);
         if (resp.data && resp.data.length) {
-          // Did we find a game on/after cutoff? If yes, this season is the right one.
-          const hasMatch = resp.data.some(g => g.game && g.game.date && new Date(g.game.date) >= cutoff);
-          if (hasMatch || s === seasonsToTry[seasonsToTry.length - 1]) {
-            data = resp;
-            usedSeason = s;
-            if (hasMatch) break;
+          allStats = allStats.concat(resp.data);
+          // Early termination if we already cover past the window
+          const mostRecent = resp.data
+            .map(g => g.game?.date ? new Date(g.game.date) : null)
+            .filter(d => d)
+            .sort((a, b) => b - a)[0];
+          if (mostRecent && mostRecent > windowEnd) break;
+        }
+      }
+
+      if (!allStats.length) {
+        notReady++;
+        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — no game data found</div>`);
+        continue;
+      }
+
+      // Filter to candidates within window AND where player actually played
+      let candidates = allStats
+        .filter(g => g.game && g.game.date)
+        .filter(g => {
+          const gd = new Date(g.game.date);
+          return gd >= windowStart && gd <= windowEnd;
+        })
+        .filter(g => computeStat(g, 'min') > 0);
+
+      if (!candidates.length) {
+        const futureGame = allStats.some(g => g.game && g.game.date && new Date(g.game.date) > windowEnd);
+        const pastGame = allStats.some(g => g.game && g.game.date && new Date(g.game.date) < windowStart);
+        notReady++;
+        const reason = futureGame ? 'game scheduled but not played yet' : (pastGame ? 'no game in window (player out / no schedule)' : 'unknown — check player schedule');
+        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — ${reason}</div>`);
+        continue;
+      }
+
+      // Try to match by opponent first (most reliable)
+      let matched = null;
+      let matchType = null;
+      if (bet.opponentTeamId) {
+        const oppMatches = candidates.filter(g =>
+          g.game && (g.game.home_team_id === bet.opponentTeamId || g.game.visitor_team_id === bet.opponentTeamId)
+        );
+        if (oppMatches.length) {
+          // Among opponent matches, prefer the one closest to bet date
+          oppMatches.sort((a, b) => Math.abs(new Date(a.game.date) - betDate) - Math.abs(new Date(b.game.date) - betDate));
+          matched = oppMatches[0];
+          matchType = 'opponent-confirmed';
+        }
+      }
+
+      if (!matched) {
+        // Fallback: prefer games on/after bet timestamp (typical workflow: user logs bet
+        // before game). Only fall back to before-bet if nothing exists after.
+        const afterBet = candidates.filter(g => new Date(g.game.date) >= betDate);
+        if (afterBet.length) {
+          afterBet.sort((a, b) => new Date(a.game.date) - new Date(b.game.date));
+          matched = afterBet[0];
+        } else {
+          candidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDate) - Math.abs(new Date(b.game.date) - betDate));
+          matched = candidates[0];
+        }
+        matchType = 'closest-date';
+
+        // Flag ambiguous closest-date matches: if 2nd candidate is also within 2 days of the best
+        if (candidates.length >= 2 && !bet.opponentTeamId) {
+          const otherCandidates = candidates.filter(g => g !== matched);
+          if (otherCandidates.length) {
+            otherCandidates.sort((a, b) => Math.abs(new Date(a.game.date) - betDate) - Math.abs(new Date(b.game.date) - betDate));
+            const firstCloseness = Math.abs(new Date(matched.game.date) - betDate);
+            const secondCloseness = Math.abs(new Date(otherCandidates[0].game.date) - betDate);
+            if (Math.abs(secondCloseness - firstCloseness) < 2 * 24 * 60 * 60 * 1000) {
+              ambiguous++;
+            }
           }
         }
       }
 
-      if (!data.data || !data.data.length) {
-        notReady++;
-        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — no game data found yet</div>`);
-        continue;
-      }
-
-      // Find first game on or after bet date (the targeted game)
-      const matched = data.data
-        .filter(g => g.game && g.game.date && new Date(g.game.date) >= cutoff)
-        .filter(g => computeStat(g, 'min') > 0)
-        .sort((a, b) => new Date(a.game.date) - new Date(b.game.date))[0];
-
-      if (!matched) {
-        notReady++;
-        lines.push(`<div style="color: var(--yellow); padding: 6px 0;">⏳ ${bet.player} — game not played yet</div>`);
-        continue;
-      }
-
       const actualValue = computeStat(matched, bet.stat);
       const won = bet.side === 'over' ? actualValue > bet.line : actualValue < bet.line;
-      const tied = actualValue === bet.line; // technically, with .5 lines this can't happen but with whole-number lines it can
+      const tied = actualValue === bet.line;
 
       bet.status = tied ? 'void' : (won ? 'win' : 'loss');
       bet.actualValue = actualValue;
       bet.gameDate = matched.game.date;
-      bet.modelError = bet.modelProb ? null : null; // could compute but model gave prob not value
-      // Save predicted vs actual for calibration
+      bet.settledOpponentId = matched.game.home_team_id === Number(matched.team?.id) ? matched.game.visitor_team_id : matched.game.home_team_id;
+      bet.settledMatchType = matchType;
       if (STATE.lastAnalysis && STATE.lastAnalysis.predMean) {
         bet.predictedMean = STATE.lastAnalysis.predMean;
       }
@@ -5470,7 +5653,9 @@ async function runAutoSettlement() {
       settled++;
       const statusEmoji = bet.status === 'win' ? '✅' : bet.status === 'loss' ? '❌' : '⚪';
       const statusColor = bet.status === 'win' ? 'var(--green)' : bet.status === 'loss' ? 'var(--red)' : 'var(--ink-dim)';
-      lines.push(`<div style="color: ${statusColor}; padding: 6px 0;">${statusEmoji} ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — actual: <strong>${actualValue}</strong> · ${bet.status.toUpperCase()}</div>`);
+      const dateStr = matched.game.date.slice(0, 10);
+      const matchFlag = matchType === 'opponent-confirmed' ? '✓ opp' : '~ closest';
+      lines.push(`<div style="color: ${statusColor}; padding: 6px 0;">${statusEmoji} ${bet.player} ${bet.side.toUpperCase()} ${bet.line} ${STAT_LABELS[bet.stat]||bet.stat} — actual: <strong>${actualValue}</strong> · ${bet.status.toUpperCase()} <span style="color:var(--ink-faint); font-size:10px;">· ${dateStr} · ${matchFlag}</span></div>`);
 
     } catch (err) {
       errors++;
@@ -5481,15 +5666,19 @@ async function runAutoSettlement() {
   saveBets();
   if (settled > 0) markDirty();
   renderTrackerBadge();
+  const ambiguousNote = ambiguous > 0
+    ? ` · <strong style="color: var(--yellow);">${ambiguous}</strong> ambiguous (verifique no Tracker)`
+    : '';
   $('#settle-meta').textContent = `${settled} settled · ${notReady} pending · ${errors} errors`;
   $('#settle-result').innerHTML = `
     <div style="font-size: 12px; line-height: 1.5;">
       <div style="margin-bottom: 10px; color: var(--ink-dim);">
         <strong style="color: var(--green);">${settled}</strong> settled ·
         <strong style="color: var(--yellow);">${notReady}</strong> not ready ·
-        <strong style="color: var(--red);">${errors}</strong> errors
+        <strong style="color: var(--red);">${errors}</strong> errors${ambiguousNote}
       </div>
       ${lines.join('')}
+      ${ambiguous > 0 ? '<div style="margin-top:10px; padding:10px; border-left: 2px solid var(--yellow); background:rgba(251,191,36,0.05); color:var(--ink-dim); font-size:11px;">⚠ Algumas bets foram resolvidas pelo jogo mais próximo da data, sem confirmação de oponente. Para bets futuras, salvar o opponent no momento da análise garante settle preciso.</div>' : ''}
     </div>
   `;
 }

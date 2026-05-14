@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.7.1 // NBA · Settle Date Fix</title>
+<title>PROP TERMINAL v13.8 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -776,6 +776,138 @@
     .playoff-banner .pb-head { font-size: 10px; }
   }
 
+  /* === v13.8: LINE BOARD === */
+  .lb-dropzone {
+    border: 2px dashed var(--line-2);
+    background: var(--bg-2);
+    padding: 28px 16px;
+    text-align: center;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .lb-dropzone:hover, .lb-dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(255,174,0,0.04);
+  }
+  .lb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .lb-table th {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--line-2);
+    background: var(--bg-2);
+  }
+  .lb-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  .lb-table tr:hover td { background: rgba(255,174,0,0.02); }
+  .lb-table tr.recent td { background: rgba(255,174,0,0.04); }
+  .lb-table .lb-player { font-weight: 600; }
+  .lb-table .lb-stat { color: var(--ink-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.1em; }
+  .lb-table .lb-line { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); }
+  .lb-table .lb-odd { font-family: 'JetBrains Mono', monospace; }
+  .lb-table input.lb-edit {
+    width: 60px;
+    padding: 3px 5px;
+    background: var(--bg-3);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-align: center;
+  }
+  .lb-table input.lb-edit:focus { border-color: var(--accent); outline: none; }
+  .lb-table .lb-age { font-size: 10px; color: var(--ink-faint); }
+  .lb-confidence {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .lb-confidence.high { background: var(--green); }
+  .lb-confidence.medium { background: var(--yellow); }
+  .lb-confidence.low { background: var(--red); }
+  .lb-resolved-team {
+    font-size: 9px;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: 6px;
+  }
+  .lb-analyze-btn {
+    font-size: 10px;
+    padding: 5px 10px;
+    background: var(--accent);
+    border: none;
+    color: #000;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .lb-analyze-btn:hover { background: #ffc233; }
+  .lb-analyze-btn:disabled { background: var(--line-2); color: var(--ink-faint); cursor: not-allowed; }
+  .lb-line-history {
+    font-size: 9px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+  .lb-unresolved-card {
+    padding: 10px 12px;
+    background: rgba(239,68,68,0.04);
+    border-left: 2px solid var(--red);
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .lb-conflict-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 5px;
+    background: var(--red);
+    color: #fff;
+    margin-left: 4px;
+    letter-spacing: 0.05em;
+    border-radius: 2px;
+  }
+  .lb-game-info {
+    padding: 12px;
+    background: var(--bg-2);
+    border-left: 2px solid var(--accent);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .lb-game-info .gi-teams { font-weight: 700; font-size: 13px; }
+  .lb-game-info .gi-tag {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 1px 6px;
+    background: #c084fc;
+    color: #000;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  @media (max-width: 720px) {
+    .lb-table { font-size: 11px; }
+    .lb-table th, .lb-table td { padding: 5px 3px; }
+    .lb-table input.lb-edit { width: 48px; font-size: 10px; }
+    .lb-table .lb-age { display: none; }
+    .lb-analyze-btn { padding: 4px 8px; font-size: 9px; }
+  }
+
   /* === v13.3: BOTTOM-SHEET MENU === */
   /* Hide the old top tab bar (in case any reference lingers) */
   .tabs { display: none !important; }
@@ -1095,7 +1227,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.7.1 · Settle Date Fix · Tracker Button</span>
+      <span class="tag">v13.8 · Line Board · OCR Capture</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1140,6 +1272,7 @@
       <button class="sheet-item" data-tab="models"><span class="si-ico">⊞</span><span class="si-txt">Models</span><span class="si-sub">blend performance</span></button>
       <button class="sheet-item" data-tab="lineshop"><span class="si-ico">⊟</span><span class="si-txt">Line Shop</span><span class="si-sub">odds comparison</span></button>
       <button class="sheet-item" data-tab="learn"><span class="si-ico">?</span><span class="si-txt">Learn</span><span class="si-sub">how it works</span></button>
+      <button class="sheet-item" data-tab="lineboard"><span class="si-ico">⊡</span><span class="si-txt">Line Board <span class="badge" id="lineboard-badge">0</span></span><span class="si-sub">ocr prop sheets</span></button>
       <button class="sheet-item" data-tab="profile"><span class="si-ico">◉</span><span class="si-txt">Profile</span><span class="si-sub">save / load</span></button>
       <button class="sheet-item" data-tab="settings"><span class="si-ico">⚙</span><span class="si-txt">Settings</span><span class="si-sub">thresholds & cache</span></button>
     </div>
@@ -1395,6 +1528,103 @@
         <div id="lineshop-props" style="margin-top: 14px;"></div>
       </div>
     </section>
+  </div>
+
+  <div id="tab-lineboard" class="hidden">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[LB1]</span> Game · Roster Scope</h2>
+        <span class="meta" id="lineboard-meta">no game selected</span>
+      </div>
+      <div class="panel-body">
+        <div class="filter-group">
+          <label>Today's Game <span class="tip" data-tip="Selecione o jogo antes de mandar prints. O sistema usa os rosters dos dois times pra resolver nomes de jogadores com precisão.">?</span></label>
+          <select id="lineboard-game"><option value="">— select game —</option></select>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="ghost" id="lineboard-refresh-games">⟲ Refresh games</button>
+          <button class="ghost" id="lineboard-load-rosters" disabled>Load rosters</button>
+        </div>
+        <div id="lineboard-game-info" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[LB2]</span> Upload Prop Sheets</h2>
+        <span class="meta" id="lineboard-ocr-meta">ready</span>
+      </div>
+      <div class="panel-body">
+
+        <div class="filter-group">
+          <label>Stat scope hint <span class="tip" data-tip="Se o print mostra só um tipo de stat (ex: só PTS), seleciona aqui. Se mostra vários, deixa 'auto'.">?</span></label>
+          <select id="lineboard-scope">
+            <option value="auto">auto-detect</option>
+            <option value="pts">Points</option>
+            <option value="reb">Rebounds</option>
+            <option value="ast">Assists</option>
+            <option value="pra">PRA (P+R+A)</option>
+            <option value="pr">PR (P+R)</option>
+            <option value="pa">PA (P+A)</option>
+            <option value="ra">RA (R+A)</option>
+            <option value="fg3m">3-Pointers Made</option>
+            <option value="stl">Steals</option>
+            <option value="blk">Blocks</option>
+            <option value="tov">Turnovers</option>
+          </select>
+        </div>
+
+        <details style="margin-top: 10px;">
+          <summary style="cursor:pointer; font-size:11px; color:var(--ink-dim); letter-spacing:0.08em; text-transform:uppercase;">Advanced: layout override</summary>
+          <div style="margin-top:10px; padding:10px; background:var(--bg-2); border-left:2px solid var(--line-2);">
+            <div class="filter-group">
+              <label>Column order (if OCR misreads)</label>
+              <select id="lineboard-layout-override">
+                <option value="">auto-detect (recommended)</option>
+                <option value="line,over,under">Line · Over · Under</option>
+                <option value="line,under,over">Line · Under · Over</option>
+                <option value="over,line,under">Over · Line · Under</option>
+                <option value="over,under">Over · Under (no line column)</option>
+                <option value="under,over">Under · Over (no line column)</option>
+              </select>
+            </div>
+            <div id="lineboard-layout-hint" style="font-size:10px; color:var(--ink-faint); margin-top:6px;"></div>
+          </div>
+        </details>
+
+        <div id="lineboard-dropzone" class="lb-dropzone">
+          <div style="font-size: 28px;">📷</div>
+          <div style="margin-top: 6px;">Drop screenshots here</div>
+          <div style="font-size:11px; color:var(--ink-faint); margin-top:4px;">or click to select · multiple files OK · images discarded after OCR</div>
+          <input type="file" id="lineboard-file-input" accept="image/*" multiple style="display:none;">
+        </div>
+
+        <div id="lineboard-progress" class="hidden" style="margin-top:14px;">
+          <div class="progress-bar"><div class="progress-bar-fill" id="lineboard-progress-fill"></div></div>
+          <div id="lineboard-progress-text" style="font-size:11px; color:var(--ink-dim); margin-top:4px;"></div>
+        </div>
+
+        <div id="lineboard-warnings" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="num">[LB3]</span> Captured Lines</h2>
+        <span class="meta" id="lineboard-board-meta">0 lines</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+          <button class="ghost" id="lineboard-clear">Clear board</button>
+          <button class="ghost" id="lineboard-lock">Lock board</button>
+          <button class="ghost" id="lineboard-export">Export JSON</button>
+        </div>
+        <div id="lineboard-table"></div>
+        <div id="lineboard-unresolved" style="margin-top:18px;"></div>
+      </div>
+    </section>
+
   </div>
 
   <div id="tab-learn" class="hidden">
@@ -1822,6 +2052,15 @@ const STATE = {
   pendingAnalysis: safeLocalStorageGetJSON('bdl_pending_analysis', null), // v11
   isDirty: false, // true when changes made since last snapshot
   oddsUnavailable: false, // v13: set true when /v2/odds returns 401/403
+  // v13.8: line board
+  lineboardGames: [],
+  lineboardSelectedGameId: safeLocalStorageGet('bdl_lb_game', ''),
+  lineboardSelectedGame: null,
+  lineboardRosters: {},
+  lineboardData: (() => {
+    const d = safeLocalStorageGetJSON('bdl_lineboard', {});
+    return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
+  })(),
 };
 const API_BASE = 'https://api.balldontlie.io/v1';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -2107,11 +2346,13 @@ setInterval(() => {
 const TAB_LABELS = {
   analyze: 'Analyze', injuries: 'Injuries', tracker: 'Tracker',
   models: 'Models', lineshop: 'Line Shop', learn: 'Learn',
+  lineboard: 'Line Board',
   profile: 'Profile', settings: 'Settings',
 };
 const TAB_METAS = {
   analyze: 'prop analysis', injuries: 'league status', tracker: 'bets & P/L',
   models: 'blend perf', lineshop: 'odds compare', learn: 'how it works',
+  lineboard: 'ocr capture',
   profile: 'save/load', settings: 'thresholds',
 };
 
@@ -2141,7 +2382,7 @@ function switchTab(which) {
   const labelEl = el('#tt-label'); if (labelEl) labelEl.textContent = TAB_LABELS[which] || which;
   const metaEl = el('#tt-meta'); if (metaEl) metaEl.textContent = TAB_METAS[which] || '';
   // Hide all panels, show selected one
-  ['analyze','injuries','tracker','models','lineshop','learn','profile','settings'].forEach(name => {
+  ['analyze','injuries','tracker','models','lineshop','learn','lineboard','profile','settings'].forEach(name => {
     const p = el('#tab-' + name);
     if (p) p.classList.toggle('hidden', which !== name);
   });
@@ -2152,6 +2393,7 @@ function switchTab(which) {
   if (which === 'profile') renderProfile();
   if (which === 'models') renderModelSelection();
   if (which === 'lineshop') renderLineShopInit();
+  if (which === 'lineboard') initLineboard();
   // Scroll back to top so the user lands on the new tab cleanly
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -5757,6 +5999,1036 @@ if (lineShopBtn) lineShopBtn.addEventListener('click', loadLineShopGames);
 
 // Mark dirty when settings save
 $('#save-settings').addEventListener('click', () => { if (typeof markDirty === 'function') markDirty(); });
+
+// === v13.8: LINE BOARD (OCR PROP SHEETS) ===
+// All Line Board state lives in STATE.lineboardData / lineboardGames / lineboardRosters /
+// lineboardSelectedGame(Id). NOTHING in the existing Analyze/Tracker/Settings flow is mutated.
+
+let _tesseractLoaded = false;
+async function ensureTesseract() {
+  if (_tesseractLoaded || window.Tesseract) { _tesseractLoaded = true; return; }
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = () => { _tesseractLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('Falha ao carregar Tesseract.js (verifique conexão)'));
+    document.head.appendChild(s);
+  });
+}
+
+function confidenceScore(c) {
+  return c === 'high' ? 3 : c === 'medium' ? 2 : c === 'low' ? 1 : 0;
+}
+
+const LB = {
+  statAliases: {
+    pts:  ['pts','points','pontos','p','ptos','puntos'],
+    reb:  ['reb','rebounds','rebotes','rb','rebs','rebound','rebotes totais','total rebounds','tr'],
+    ast:  ['ast','assists','assistencias','assistências','as','asts','assist'],
+    pra:  ['pra','p+r+a','pts+reb+ast','points+rebounds+assists','p.r.a.','pontos+rebotes+assistencias'],
+    pr:   ['pr','p+r','pts+reb','points+rebounds','pontos+rebotes'],
+    pa:   ['pa','p+a','pts+ast','points+assists','pontos+assistencias'],
+    ra:   ['ra','r+a','reb+ast','rebounds+assists','rebotes+assistencias'],
+    fg3m: ['3pm','3pt','3pt made','threes','fg3m','tres','arremessos de 3','3 pointers','three pointers','3-pt made','triples','tres pontos','três pontos'],
+    stl:  ['stl','steals','roubos','st','roubadas','roubadas de bola'],
+    blk:  ['blk','blocks','tocos','bk','bloqueios'],
+    tov:  ['tov','turnovers','erros','to','perdas'],
+    min:  ['min','minutes','minutos'],
+  },
+
+  detectStat(text, scopeHint) {
+    if (scopeHint && scopeHint !== 'auto') return scopeHint;
+    const t = (text || '').toLowerCase().trim().replace(/[^a-z+0-9\s]/gi, ' ').replace(/\s+/g, ' ');
+    const allAliases = [];
+    for (const [key, aliases] of Object.entries(LB.statAliases)) {
+      for (const a of aliases) allAliases.push({ key, alias: a, len: a.length });
+    }
+    allAliases.sort((a, b) => b.len - a.len);
+    for (const { key, alias } of allAliases) {
+      const re = new RegExp('(^|\\s)' + alias.replace(/\+/g, '\\+') + '($|\\s)', 'i');
+      if (re.test(t)) return key;
+    }
+    return null;
+  },
+
+  async preprocessImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const scale = img.width < 1000 ? 1000 / img.width : 1;
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+            let v = (lum - 128) * 1.4 + 128;
+            v = Math.max(0, Math.min(255, v));
+            d[i] = d[i+1] = d[i+2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(blob => resolve(blob), 'image/png');
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          reject(e);
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar imagem')); };
+      img.src = url;
+    });
+  },
+
+  async fingerprint(file) {
+    const buf = await file.arrayBuffer();
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).slice(0, 12).map(b => b.toString(16).padStart(2,'0')).join('');
+  },
+
+  async ocrImage(file, onProgress) {
+    await ensureTesseract();
+    const processed = await LB.preprocessImage(file).catch(() => file);
+    const result = await Tesseract.recognize(processed, 'eng+por', {
+      logger: m => {
+        if (onProgress && m.status === 'recognizing text') onProgress(m.progress || 0);
+      },
+    });
+    return result.data;
+  },
+
+  detectLayout(ocrLines, scopeHint) {
+    const text = ocrLines.map(l => l.text).join('\n').toLowerCase();
+    const hasOverEn = /\bover\b/.test(text);
+    const hasUnderEn = /\bunder\b/.test(text);
+    const hasMaisPt = /\b(mais|acima)\b/.test(text);
+    const hasMenosPt = /\b(menos|abaixo)\b/.test(text);
+    const language = (hasMaisPt || hasMenosPt) ? 'pt' : (hasOverEn || hasUnderEn) ? 'en' : 'unknown';
+
+    let columnOrder = null;
+    let statBlock = null;
+    for (let i = 0; i < ocrLines.length; i++) {
+      const t = (ocrLines[i].text || '').toLowerCase();
+      if (!statBlock) {
+        const maybeStat = LB.detectStat(t);
+        if (maybeStat && t.length <= 40 && !/\d/.test(t)) {
+          statBlock = maybeStat;
+        }
+      }
+      const overIdx = Math.max(t.indexOf('over'), t.indexOf('mais'), t.indexOf('acima'));
+      const underIdx = Math.max(t.indexOf('under'), t.indexOf('menos'), t.indexOf('abaixo'));
+      const lineIdx = Math.max(t.indexOf('line'), t.indexOf('linha'), t.indexOf('handicap'));
+      if (overIdx >= 0 && underIdx >= 0 && Math.abs(overIdx - underIdx) > 3) {
+        const orderedCols = [];
+        if (lineIdx >= 0) orderedCols.push({ key: 'line', pos: lineIdx });
+        orderedCols.push({ key: 'over', pos: overIdx });
+        orderedCols.push({ key: 'under', pos: underIdx });
+        orderedCols.sort((a, b) => a.pos - b.pos);
+        columnOrder = orderedCols.map(c => c.key);
+        break;
+      }
+    }
+
+    let multiLineHits = 0;
+    for (const l of ocrLines) {
+      const t = (l.text || '').trim().toLowerCase();
+      if (/^(over|under|mais|menos|acima|abaixo)\s+\d/.test(t) && t.length < 20) multiLineHits++;
+    }
+    const multiLine = multiLineHits >= 3;
+
+    let confidence = 0;
+    if (columnOrder) confidence += 0.6;
+    if (statBlock) confidence += 0.2;
+    if (multiLine) confidence += 0.3;
+    if (language !== 'unknown') confidence += 0.1;
+    confidence = Math.min(1, confidence);
+
+    return { columnOrder: columnOrder || null, statBlock, multiLine, language, confidence };
+  },
+
+  americanToDecimal(american) {
+    if (!isFinite(american)) return null;
+    if (american >= 100) return +(1 + american / 100).toFixed(2);
+    if (american <= -100) return +(1 + 100 / Math.abs(american)).toFixed(2);
+    return null;
+  },
+
+  normalizeName(name) {
+    return (name || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[.\,]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/^[a-z]\s+/, '');
+  },
+
+  parsePlayerLine(raw, normalized, statHint, layout) {
+    const numbers = (normalized.match(/-?\d+\.?\d*/g) || []).map(parseFloat).filter(isFinite);
+    if (numbers.length < 1) return null;
+
+    const overInline = /\b(over|mais|acima)\b/i.test(normalized);
+    const underInline = /\b(under|menos|abaixo)\b/i.test(normalized);
+
+    const firstNumIdx = normalized.search(/-?\d/);
+    if (firstNumIdx < 1) return null;
+    let name = normalized.substring(0, firstNumIdx).trim();
+    name = name.replace(/\b(over|under|mais|menos|acima|abaixo|o\/u|o|u)\b\.?/gi, '')
+               .replace(/[,;:|]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (name.length < 3 || !/[a-zA-Z]/.test(name)) return null;
+    if (/^(quarter|half|first|game|moneyline|spread|total|over\/under|points|rebounds|assists|home|away|visitor|player|line|odd|odds)$/i.test(name)) return null;
+
+    let stat = statHint;
+    if (!stat || stat === 'auto') {
+      const inferred = LB.detectStat(raw, statHint);
+      if (inferred) stat = inferred;
+      else return null;
+    }
+
+    let line = null, oddOver = null, oddUnder = null;
+
+    const halfNum = numbers.find(n => Math.abs(n - Math.round(n)) > 0.4 && n > 0 && n < 100);
+    if (halfNum !== undefined) {
+      line = halfNum;
+    } else {
+      const maxByStat = { pts: 60, reb: 25, ast: 20, fg3m: 12, stl: 8, blk: 8, tov: 10, min: 50, pra: 80, pr: 70, pa: 70, ra: 35 };
+      const maxPlausible = maxByStat[stat] || 60;
+      const wholeCandidate = numbers.find(n => Number.isInteger(n) && n >= 1 && n <= maxPlausible);
+      if (wholeCandidate !== undefined) line = wholeCandidate;
+    }
+    if (line === null) return null;
+
+    const remaining = numbers.filter(n => n !== line);
+    const decimalOdds = remaining.filter(n => n > 1.01 && n < 50);
+    const americanOdds = remaining.filter(n => Math.abs(n) >= 100 && Math.abs(n) <= 2000);
+
+    const assignOddsByOrder = (oddPair) => {
+      if (!layout || !layout.columnOrder) return null;
+      const order = layout.columnOrder.filter(k => k === 'over' || k === 'under');
+      if (order.length < 2 || oddPair.length < 2) return null;
+      const result = { oddOver: null, oddUnder: null };
+      order.forEach((key, i) => {
+        if (key === 'over') result.oddOver = oddPair[i];
+        else if (key === 'under') result.oddUnder = oddPair[i];
+      });
+      return result;
+    };
+
+    if (overInline && !underInline && decimalOdds.length >= 1) {
+      oddOver = decimalOdds[0];
+    } else if (underInline && !overInline && decimalOdds.length >= 1) {
+      oddUnder = decimalOdds[0];
+    } else if (decimalOdds.length >= 2) {
+      const assigned = assignOddsByOrder(decimalOdds);
+      if (assigned) {
+        oddOver = assigned.oddOver;
+        oddUnder = assigned.oddUnder;
+      } else {
+        oddOver = decimalOdds[0];
+        oddUnder = decimalOdds[1];
+      }
+    } else if (decimalOdds.length === 1) {
+      if (overInline) oddOver = decimalOdds[0];
+      else if (underInline) oddUnder = decimalOdds[0];
+      else oddOver = decimalOdds[0];
+    } else if (americanOdds.length >= 2) {
+      const conv = americanOdds.map(LB.americanToDecimal);
+      const assigned = assignOddsByOrder(conv);
+      if (assigned) {
+        oddOver = assigned.oddOver;
+        oddUnder = assigned.oddUnder;
+      } else {
+        oddOver = conv[0];
+        oddUnder = conv[1];
+      }
+    } else if (americanOdds.length === 1) {
+      oddOver = LB.americanToDecimal(americanOdds[0]);
+    }
+
+    if (oddOver !== null && (oddOver <= 1.01 || oddOver > 50)) oddOver = null;
+    if (oddUnder !== null && (oddUnder <= 1.01 || oddUnder > 50)) oddUnder = null;
+    if (oddOver === null && oddUnder === null) return null;
+
+    return { player: name, stat, line, oddOver, oddUnder, ocrConfidence: 60 };
+  },
+
+  parseOCR(ocrResult, scopeHint, layout) {
+    const ocrLines = (ocrResult.lines || []).map(l => ({ text: l.text || '', conf: l.confidence || 0 }));
+    const lines = ocrLines.length ? ocrLines : (ocrResult.text || '').split(/\r?\n/).map(t => ({ text: t.trim(), conf: 60 }));
+    const entries = [];
+    const warnings = [];
+
+    let currentStat = (layout && layout.statBlock) || null;
+    const seenInThisUpload = {};
+
+    if (layout && layout.multiLine) {
+      let pending = null;
+      for (const ln of lines) {
+        const raw = ln.text.trim();
+        if (raw.length < 2) continue;
+        const normalized = raw.replace(/(\d),(\d)/g, '$1.$2').toLowerCase();
+
+        const headerStat = LB.detectStat(raw);
+        if (headerStat && raw.length <= 30 && !/\d/.test(raw)) {
+          currentStat = headerStat;
+          continue;
+        }
+
+        const numbers = (normalized.match(/-?\d+\.?\d*/g) || []).map(parseFloat).filter(isFinite);
+        const isOverLine = /^(over|mais|acima)\b/.test(normalized);
+        const isUnderLine = /^(under|menos|abaixo)\b/.test(normalized);
+
+        if ((isOverLine || isUnderLine) && pending && numbers.length >= 1) {
+          const oddVal = numbers.find(n => n > 1.01 && n < 50);
+          if (oddVal !== undefined) {
+            if (isOverLine) pending.oddOver = oddVal;
+            else pending.oddUnder = oddVal;
+          }
+          continue;
+        }
+
+        if (pending && (pending.oddOver !== null || pending.oddUnder !== null) && pending.line !== null) {
+          const key = LB.normalizeName(pending.player) + '::' + pending.stat;
+          if (!seenInThisUpload[key]) {
+            entries.push(pending);
+            seenInThisUpload[key] = true;
+          }
+          pending = null;
+        }
+
+        const result = LB.parsePlayerLine(raw, normalized, currentStat || scopeHint, layout);
+        if (result) pending = result;
+      }
+      if (pending && pending.line !== null && (pending.oddOver !== null || pending.oddUnder !== null)) {
+        const key = LB.normalizeName(pending.player) + '::' + pending.stat;
+        if (!seenInThisUpload[key]) entries.push(pending);
+      }
+      return { entries, warnings };
+    }
+
+    for (const ln of lines) {
+      const raw = ln.text.trim();
+      if (raw.length < 3) continue;
+      if (raw.length > 200) continue; // OCR confusion — likely garbage
+
+      const headerStat = LB.detectStat(raw);
+      if (headerStat && raw.length <= 30 && !/\d/.test(raw)) {
+        currentStat = headerStat;
+        continue;
+      }
+
+      if (/(over|under|mais|menos|acima|abaixo)/i.test(raw) && !/\d{2,}/.test(raw)) continue;
+
+      const normalized = raw.replace(/(\d),(\d)/g, '$1.$2');
+      const rowResult = LB.parsePlayerLine(raw, normalized, currentStat || scopeHint, layout);
+      if (!rowResult) continue;
+
+      const key = LB.normalizeName(rowResult.player) + '::' + rowResult.stat;
+      if (seenInThisUpload[key]) {
+        const prev = seenInThisUpload[key];
+        if (prev.line !== rowResult.line || prev.oddOver !== rowResult.oddOver || prev.oddUnder !== rowResult.oddUnder) {
+          warnings.push(`⚠ Conflito em "${rowResult.player} ${rowResult.stat}": valores divergentes na mesma foto`);
+        }
+        continue;
+      }
+      seenInThisUpload[key] = rowResult;
+      entries.push(rowResult);
+    }
+
+    return { entries, warnings };
+  },
+
+  resolveAgainstRosters(rawName) {
+    if (!STATE.lineboardSelectedGame) return { player: null, confidence: null };
+    const game = STATE.lineboardSelectedGame;
+    const homeRoster = STATE.lineboardRosters[game.home_team && game.home_team.id] || [];
+    const visitorRoster = STATE.lineboardRosters[game.visitor_team && game.visitor_team.id] || [];
+    const pool = homeRoster.concat(visitorRoster);
+    if (!pool.length) return { player: null, confidence: null };
+
+    const target = LB.normalizeName(rawName);
+    const targetTokens = target.split(/\s+/).filter(t => t.length >= 2);
+
+    let best = null, bestScore = 0;
+    for (const p of pool) {
+      const candidate = LB.normalizeName((p.first_name || '') + ' ' + (p.last_name || ''));
+      const candidateTokens = candidate.split(/\s+/);
+      let score = 0;
+      if (target === candidate) score += 100;
+      if (candidateTokens.length && targetTokens.length &&
+          candidateTokens[candidateTokens.length - 1] === targetTokens[targetTokens.length - 1]) score += 40;
+      if (targetTokens[0] && candidateTokens[0] && targetTokens[0] === candidateTokens[0]) score += 30;
+      if (targetTokens[0] && candidateTokens[0] && targetTokens[0][0] === candidateTokens[0][0]) score += 10;
+      if (target.length >= 4 && candidate.includes(target)) score += 20;
+      if (candidate.length >= 4 && target.includes(candidate)) score += 15;
+      const shared = targetTokens.filter(t => candidateTokens.includes(t)).length;
+      score += shared * 8;
+      if (score > bestScore) { bestScore = score; best = p; }
+    }
+
+    let confidence = null;
+    if (bestScore >= 70) confidence = 'high';
+    else if (bestScore >= 40) confidence = 'medium';
+    else if (bestScore >= 18) confidence = 'low';
+    return { player: confidence ? best : null, confidence };
+  },
+
+  applyEntries(gameId, entries) {
+    if (!STATE.lineboardData[gameId]) {
+      STATE.lineboardData[gameId] = {
+        gameInfo: STATE.lineboardSelectedGame,
+        lines: {},
+        locked: false,
+        uploadFingerprints: [],
+        rememberedLayout: null,
+      };
+    }
+    const board = STATE.lineboardData[gameId];
+    if (board.locked) return { updated: 0, added: 0, skipped: entries.length, unresolved: 0, locked: true };
+
+    const now = new Date().toISOString();
+    let updated = 0, added = 0, unresolved = 0;
+
+    for (const e of entries) {
+      const resolution = LB.resolveAgainstRosters(e.player);
+      const key = LB.normalizeName(e.player) + '::' + e.stat;
+      const existing = board.lines[key];
+
+      if (existing && existing.edited) {
+        if (!existing.history) existing.history = [];
+        existing.history.push({ ts: existing.lastUpdate, line: e.line, oddOver: e.oddOver, oddUnder: e.oddUnder, source: 'ocr-overridden' });
+        if (existing.history.length > 20) existing.history = existing.history.slice(-20);
+        existing.lastUpdate = now;
+        continue;
+      }
+
+      if (existing) {
+        if (!existing.history) existing.history = [];
+        existing.history.push({ ts: existing.lastUpdate, line: existing.line, oddOver: existing.oddOver, oddUnder: existing.oddUnder });
+        if (existing.history.length > 20) existing.history = existing.history.slice(-20);
+        existing.line = e.line;
+        if (e.oddOver !== null) existing.oddOver = e.oddOver;
+        if (e.oddUnder !== null) existing.oddUnder = e.oddUnder;
+        existing.lastUpdate = now;
+        existing.rawPlayer = e.player;
+        if (resolution.confidence && (!existing.resolutionConfidence || confidenceScore(resolution.confidence) > confidenceScore(existing.resolutionConfidence))) {
+          existing.resolvedPlayer = resolution.player;
+          existing.resolutionConfidence = resolution.confidence;
+        }
+        updated++;
+      } else {
+        board.lines[key] = {
+          rawPlayer: e.player,
+          resolvedPlayer: resolution.player,
+          resolutionConfidence: resolution.confidence,
+          stat: e.stat,
+          line: e.line,
+          oddOver: e.oddOver,
+          oddUnder: e.oddUnder,
+          firstSeen: now,
+          lastUpdate: now,
+          history: [],
+          edited: false,
+          conflicts: 0,
+          ocrConfidence: e.ocrConfidence,
+        };
+        added++;
+        if (!resolution.confidence) unresolved++;
+      }
+    }
+    safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+    return { updated, added, skipped: 0, unresolved, locked: false };
+  },
+};
+
+async function loadGameRosters(game) {
+  if (!game) return;
+  const teamIds = [game.home_team && game.home_team.id, game.visitor_team && game.visitor_team.id].filter(x => x);
+  const metaEl = el('#lineboard-meta');
+  if (metaEl) metaEl.innerHTML = '<span class="loader"></span>loading rosters';
+  for (const tid of teamIds) {
+    if (STATE.lineboardRosters[tid] && STATE.lineboardRosters[tid].length) continue;
+    let allRoster = [];
+    try {
+      let cursor = null;
+      for (let i = 0; i < 5; i++) {
+        const params = { 'team_ids[]': tid, per_page: 100 };
+        if (cursor) params.cursor = cursor;
+        const data = await bdlFetch('/players/active', params);
+        if (data && data.data) allRoster = allRoster.concat(data.data);
+        if (!data || !data.meta || !data.meta.next_cursor) break;
+        cursor = data.meta.next_cursor;
+      }
+    } catch (e) {
+      console.warn('loadGameRosters /players/active failed for team', tid, e.message);
+      try {
+        const data = await bdlFetch('/players', { 'team_ids[]': tid, per_page: 100 });
+        if (data && data.data) allRoster = data.data;
+      } catch (e2) {
+        console.warn('loadGameRosters fallback /players failed:', e2.message);
+      }
+    }
+    STATE.lineboardRosters[tid] = allRoster;
+  }
+  const totalPlayers = teamIds.reduce((s, tid) => s + ((STATE.lineboardRosters[tid] || []).length), 0);
+  if (metaEl) metaEl.textContent = `rosters loaded · ${totalPlayers} players`;
+}
+
+async function loadLineboardGames(force) {
+  const metaEl = el('#lineboard-meta');
+  if (metaEl) metaEl.innerHTML = '<span class="loader"></span>loading games';
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const data = await bdlFetch('/games', { 'dates[]': today, per_page: 100 }, !force);
+    STATE.lineboardGames = (data && data.data) || [];
+    const sel = el('#lineboard-game');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— select game —</option>';
+    if (!STATE.lineboardGames.length) {
+      sel.innerHTML += '<option value="" disabled>(no NBA games today)</option>';
+    } else {
+      STATE.lineboardGames.sort((a, b) => new Date(a.date) - new Date(b.date));
+      for (const g of STATE.lineboardGames) {
+        const home = (g.home_team && g.home_team.abbreviation) || '?';
+        const visitor = (g.visitor_team && g.visitor_team.abbreviation) || '?';
+        const status = g.status === 'Final' ? 'FINAL' : (g.status || '');
+        const playoffTag = g.postseason ? ' 🏆' : '';
+        sel.innerHTML += `<option value="${g.id}">${visitor} @ ${home}${status ? ' · ' + status : ''}${playoffTag}</option>`;
+      }
+      if (STATE.lineboardSelectedGameId) sel.value = STATE.lineboardSelectedGameId;
+    }
+    if (metaEl) metaEl.textContent = `${STATE.lineboardGames.length} games today`;
+  } catch (err) {
+    if (metaEl) metaEl.textContent = 'err: ' + err.message;
+  }
+}
+
+async function initLineboard() {
+  if (!STATE.lineboardGames || !STATE.lineboardGames.length) {
+    await loadLineboardGames();
+  }
+  if (STATE.lineboardSelectedGameId) {
+    const g = STATE.lineboardGames.find(x => String(x.id) === String(STATE.lineboardSelectedGameId));
+    if (g) {
+      STATE.lineboardSelectedGame = g;
+      const sel = el('#lineboard-game'); if (sel) sel.value = g.id;
+      await loadGameRosters(g);
+      const lr = el('#lineboard-load-rosters'); if (lr) lr.disabled = false;
+    }
+  }
+  renderLineboardGameInfo();
+  renderLineboardTable();
+  renderLineboardUnresolved();
+  wireLineboardOnce();
+}
+
+let _lineboardWired = false;
+function wireLineboardOnce() {
+  if (_lineboardWired) return;
+  _lineboardWired = true;
+
+  const gameSel = el('#lineboard-game');
+  if (gameSel) gameSel.addEventListener('change', async e => {
+    const gameId = e.target.value;
+    STATE.lineboardSelectedGameId = gameId;
+    safeLocalStorageSet('bdl_lb_game', gameId);
+    STATE.lineboardSelectedGame = STATE.lineboardGames.find(g => String(g.id) === gameId) || null;
+    if (STATE.lineboardSelectedGame) {
+      await loadGameRosters(STATE.lineboardSelectedGame);
+      const lr = el('#lineboard-load-rosters'); if (lr) lr.disabled = false;
+      retroResolve(STATE.lineboardSelectedGame.id);
+    } else {
+      const lr = el('#lineboard-load-rosters'); if (lr) lr.disabled = true;
+    }
+    renderLineboardGameInfo();
+    renderLineboardTable();
+    renderLineboardUnresolved();
+  });
+
+  const refreshBtn = el('#lineboard-refresh-games');
+  if (refreshBtn) refreshBtn.addEventListener('click', () => loadLineboardGames(true));
+
+  const loadRostersBtn = el('#lineboard-load-rosters');
+  if (loadRostersBtn) loadRostersBtn.addEventListener('click', async () => {
+    if (STATE.lineboardSelectedGame) {
+      const g = STATE.lineboardSelectedGame;
+      delete STATE.lineboardRosters[g.home_team && g.home_team.id];
+      delete STATE.lineboardRosters[g.visitor_team && g.visitor_team.id];
+      await loadGameRosters(g);
+      retroResolve(g.id);
+      renderLineboardGameInfo();
+      renderLineboardTable();
+      renderLineboardUnresolved();
+    }
+  });
+
+  const dz = el('#lineboard-dropzone');
+  const fi = el('#lineboard-file-input');
+  if (dz && fi) {
+    dz.addEventListener('click', () => fi.click());
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('drag-over');
+      if (e.dataTransfer && e.dataTransfer.files) handleLineboardFiles(e.dataTransfer.files);
+    });
+    fi.addEventListener('change', e => {
+      if (e.target.files) handleLineboardFiles(e.target.files);
+      e.target.value = '';
+    });
+  }
+
+  const clearBtn = el('#lineboard-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    if (!STATE.lineboardSelectedGame) return;
+    if (!confirm('Apagar todas as linhas deste jogo?')) return;
+    delete STATE.lineboardData[STATE.lineboardSelectedGame.id];
+    safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+    renderLineboardTable();
+    renderLineboardUnresolved();
+    renderLineboardBadge();
+  });
+
+  const lockBtn = el('#lineboard-lock');
+  if (lockBtn) lockBtn.addEventListener('click', () => {
+    if (!STATE.lineboardSelectedGame) return;
+    const gid = STATE.lineboardSelectedGame.id;
+    if (!STATE.lineboardData[gid]) return;
+    STATE.lineboardData[gid].locked = !STATE.lineboardData[gid].locked;
+    safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+    renderLineboardTable();
+  });
+
+  const exportBtn = el('#lineboard-export');
+  if (exportBtn) exportBtn.addEventListener('click', () => {
+    if (!STATE.lineboardSelectedGame) return;
+    const data = STATE.lineboardData[STATE.lineboardSelectedGame.id];
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lineboard_${STATE.lineboardSelectedGame.id}_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  });
+}
+
+function renderLineboardGameInfo() {
+  const ctr = el('#lineboard-game-info');
+  if (!ctr) return;
+  if (!STATE.lineboardSelectedGame) { ctr.innerHTML = ''; return; }
+  const g = STATE.lineboardSelectedGame;
+  const home = (g.home_team && (g.home_team.full_name || g.home_team.abbreviation)) || '?';
+  const visitor = (g.visitor_team && (g.visitor_team.full_name || g.visitor_team.abbreviation)) || '?';
+  const homeRoster = (STATE.lineboardRosters[g.home_team && g.home_team.id] || []).length;
+  const visitorRoster = (STATE.lineboardRosters[g.visitor_team && g.visitor_team.id] || []).length;
+  ctr.innerHTML = `
+    <div class="lb-game-info">
+      <div class="gi-teams">${visitor} @ ${home}${g.postseason ? '<span class="gi-tag">PLAYOFF</span>' : ''}</div>
+      <div style="margin-top:6px; color:var(--ink-dim); font-size:11px;">
+        ${(g.date || '').slice(0,10)} · status: ${g.status || '?'}<br>
+        rosters: ${visitorRoster + homeRoster} players loaded (${(g.visitor_team && g.visitor_team.abbreviation) || '?'} ${visitorRoster} / ${(g.home_team && g.home_team.abbreviation) || '?'} ${homeRoster})
+      </div>
+    </div>
+  `;
+  const board = STATE.lineboardData[g.id];
+  const hintEl = el('#lineboard-layout-hint');
+  if (hintEl) {
+    if (board && board.rememberedLayout && board.rememberedLayout.columnOrder) {
+      hintEl.textContent = `Layout aprendido: ${board.rememberedLayout.columnOrder.join(' · ')} (${board.rememberedLayout.source || 'detected'})`;
+    } else {
+      hintEl.textContent = '';
+    }
+  }
+}
+
+async function handleLineboardFiles(fileList) {
+  if (!STATE.lineboardSelectedGame) { alert('Selecione um jogo primeiro.'); return; }
+  const game = STATE.lineboardSelectedGame;
+  const files = Array.from(fileList).filter(f => f.type && f.type.startsWith('image/'));
+  if (!files.length) { alert('Nenhuma imagem detectada.'); return; }
+
+  const scope = el('#lineboard-scope').value;
+  const overrideVal = (el('#lineboard-layout-override') || {}).value || '';
+  const userOverrideLayout = overrideVal ? {
+    columnOrder: overrideVal.split(','),
+    statBlock: null,
+    multiLine: false,
+    language: 'unknown',
+    confidence: 1.0,
+    source: 'user-override',
+  } : null;
+
+  const progressEl = el('#lineboard-progress');
+  const fillEl = el('#lineboard-progress-fill');
+  const textEl = el('#lineboard-progress-text');
+  const warningsEl = el('#lineboard-warnings');
+  if (progressEl) progressEl.classList.remove('hidden');
+  if (warningsEl) warningsEl.innerHTML = '';
+
+  let totalAdded = 0, totalUpdated = 0, totalSkippedDupe = 0;
+  const allWarnings = [];
+
+  if (!STATE.lineboardData[game.id]) {
+    STATE.lineboardData[game.id] = { gameInfo: game, lines: {}, locked: false, uploadFingerprints: [], rememberedLayout: null };
+  }
+  const board = STATE.lineboardData[game.id];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (textEl) textEl.textContent = `OCR ${i+1}/${files.length}: ${file.name}`;
+
+    try {
+      const fp = await LB.fingerprint(file);
+      if (board.uploadFingerprints.indexOf(fp) >= 0) {
+        totalSkippedDupe++;
+        allWarnings.push(`⏭ ${file.name}: arquivo já foi processado anteriormente (mesmo conteúdo)`);
+        continue;
+      }
+      board.uploadFingerprints.push(fp);
+      if (board.uploadFingerprints.length > 100) {
+        board.uploadFingerprints = board.uploadFingerprints.slice(-100);
+      }
+
+      const ocrResult = await LB.ocrImage(file, p => {
+        if (fillEl) fillEl.style.width = (((i + p) / files.length) * 100) + '%';
+      });
+
+      const ocrLinesForDetect = (ocrResult.lines || []).map(l => ({ text: l.text || '', conf: l.confidence || 0 }));
+      const detected = LB.detectLayout(
+        ocrLinesForDetect.length ? ocrLinesForDetect : [{ text: ocrResult.text || '' }],
+        scope
+      );
+
+      let effectiveLayout = userOverrideLayout || detected;
+      if (!userOverrideLayout && detected.confidence < 0.5 && board.rememberedLayout) {
+        effectiveLayout = Object.assign({}, board.rememberedLayout, { confidence: 0.4, source: 'remembered' });
+        allWarnings.push(`ℹ Layout não detectado neste print — usando layout aprendido (${(board.rememberedLayout.columnOrder || []).join('/')})`);
+      }
+
+      if (!userOverrideLayout && detected.confidence >= 0.6) {
+        if (board.rememberedLayout && board.rememberedLayout.columnOrder) {
+          const newOrder = (detected.columnOrder || []).join(',');
+          const oldOrder = (board.rememberedLayout.columnOrder || []).join(',');
+          if (oldOrder && newOrder && newOrder !== oldOrder) {
+            allWarnings.push(`⚠ Layout mudou entre prints! Antes: ${oldOrder}, agora: ${newOrder}. Confirme manualmente se os valores na tabela estão corretos.`);
+          }
+        }
+        board.rememberedLayout = Object.assign({}, detected, { learnedAt: new Date().toISOString(), source: 'detected' });
+      }
+
+      const parsed = LB.parseOCR(ocrResult, scope, effectiveLayout);
+      const entries = parsed.entries;
+      const warnings = parsed.warnings;
+      for (const w of warnings) allWarnings.push(w);
+
+      if (!entries.length) {
+        allWarnings.push(`⚠ ${file.name}: nenhuma linha detectada (resolução baixa?)`);
+        continue;
+      }
+
+      const result = LB.applyEntries(game.id, entries);
+      totalAdded += result.added;
+      totalUpdated += result.updated;
+      if (result.locked) {
+        allWarnings.push('🔒 Board locked — unlock para aplicar updates');
+        break;
+      }
+    } catch (err) {
+      console.error('Lineboard OCR error:', err);
+      allWarnings.push(`❌ ${file.name}: ${err.message}`);
+    }
+  }
+
+  if (fillEl) fillEl.style.width = '100%';
+  if (textEl) textEl.textContent = `✓ ${totalAdded} new · ${totalUpdated} updated${totalSkippedDupe ? ' · ' + totalSkippedDupe + ' duplicate uploads skipped' : ''}`;
+  setTimeout(() => { if (progressEl) progressEl.classList.add('hidden'); if (fillEl) fillEl.style.width = '0%'; }, 2500);
+
+  if (allWarnings.length && warningsEl) {
+    warningsEl.innerHTML = allWarnings.slice(0, 15).map(w =>
+      `<div style="padding:6px 10px; background:rgba(251,191,36,0.04); border-left:2px solid var(--yellow); font-size:11px; color:var(--ink-dim); margin-bottom:4px;">${w}</div>`
+    ).join('');
+  }
+
+  safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+  renderLineboardGameInfo();
+  renderLineboardTable();
+  renderLineboardUnresolved();
+  renderLineboardBadge();
+}
+
+function retroResolve(gameId) {
+  const board = STATE.lineboardData[gameId];
+  if (!board) return;
+  let changed = 0;
+  for (const entry of Object.values(board.lines)) {
+    if (entry.resolutionConfidence === 'high') continue;
+    const res = LB.resolveAgainstRosters(entry.rawPlayer);
+    if (res.confidence && confidenceScore(res.confidence) > confidenceScore(entry.resolutionConfidence)) {
+      entry.resolvedPlayer = res.player;
+      entry.resolutionConfidence = res.confidence;
+      changed++;
+    }
+  }
+  if (changed) safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+}
+
+function renderLineboardTable() {
+  const ctr = el('#lineboard-table');
+  const metaEl = el('#lineboard-board-meta');
+  if (!ctr) return;
+  if (!STATE.lineboardSelectedGame) {
+    ctr.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ink-faint);">Selecione um jogo acima.</div>';
+    if (metaEl) metaEl.textContent = '0 lines';
+    return;
+  }
+  const gid = STATE.lineboardSelectedGame.id;
+  const board = STATE.lineboardData[gid];
+  if (!board || !Object.keys(board.lines).length) {
+    ctr.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ink-faint);">Sem linhas ainda. Faça upload de prints acima.</div>';
+    if (metaEl) metaEl.textContent = '0 lines';
+    return;
+  }
+
+  const resolved = Object.entries(board.lines).filter(kv => kv[1].resolutionConfidence);
+  const now = Date.now();
+  const RECENT_MS = 5 * 60 * 1000;
+
+  let html = board.locked
+    ? '<div style="margin-bottom:10px; padding:8px 12px; background:rgba(74,222,128,0.06); border-left:2px solid var(--green); font-size:11px; color:var(--green);">🔒 Board locked — clica Lock board novamente pra desbloquear</div>'
+    : '';
+
+  if (!resolved.length) {
+    html += '<div style="padding:14px; color:var(--ink-faint); text-align:center; font-size:12px;">Nenhuma linha resolvida ainda. Veja seção de não-resolvidas abaixo.</div>';
+    ctr.innerHTML = html;
+    if (metaEl) metaEl.textContent = `0/${Object.keys(board.lines).length} resolved`;
+    return;
+  }
+
+  const byPlayer = {};
+  for (const [key, e] of resolved) {
+    const pid = (e.resolvedPlayer && e.resolvedPlayer.id) || e.rawPlayer;
+    if (!byPlayer[pid]) byPlayer[pid] = { entry: e, rows: [] };
+    byPlayer[pid].rows.push(Object.assign({ key }, e));
+  }
+  const sortedPlayers = Object.values(byPlayer).sort((a, b) => {
+    const an = ((a.entry.resolvedPlayer && a.entry.resolvedPlayer.last_name) || a.entry.rawPlayer || '').toLowerCase();
+    const bn = ((b.entry.resolvedPlayer && b.entry.resolvedPlayer.last_name) || b.entry.rawPlayer || '').toLowerCase();
+    return an.localeCompare(bn);
+  });
+
+  html += `<table class="lb-table">
+    <thead><tr>
+      <th>Player</th><th>Stat</th><th>Line</th><th>Over</th><th>Under</th><th>Age</th><th></th>
+    </tr></thead><tbody>`;
+
+  for (const p of sortedPlayers) {
+    p.rows.sort((a, b) => a.stat.localeCompare(b.stat));
+    for (const r of p.rows) {
+      const ageMs = now - new Date(r.lastUpdate).getTime();
+      const recent = ageMs < RECENT_MS;
+      const ageStr = ageMs < 60000 ? '<1m' : ageMs < 3600000 ? Math.floor(ageMs/60000)+'m' : Math.floor(ageMs/3600000)+'h';
+      const player = r.resolvedPlayer || { first_name: '?', last_name: r.rawPlayer };
+      const team = (player.team && player.team.abbreviation) || '';
+      const lastHist = r.history && r.history.length ? r.history[r.history.length - 1] : null;
+      const histStr = lastHist && lastHist.line !== r.line ? `was ${lastHist.line} → now ${r.line}` : '';
+      const lineMoveColor = lastHist && lastHist.line !== r.line
+        ? (r.line > lastHist.line ? 'var(--green)' : 'var(--red)') : 'var(--ink-faint)';
+
+      html += `<tr class="${recent ? 'recent' : ''}" data-key="${r.key}">
+        <td>
+          <span class="lb-confidence ${r.resolutionConfidence}"></span>
+          <span class="lb-player">${player.first_name} ${player.last_name}</span>
+          <span class="lb-resolved-team">${team}</span>
+          ${r.edited ? '<span style="font-size:9px;color:var(--ink-faint);margin-left:4px;">edited</span>' : ''}
+        </td>
+        <td><span class="lb-stat">${r.stat}</span></td>
+        <td>
+          <input type="number" class="lb-edit" data-field="line" data-key="${r.key}" value="${r.line}" step="0.5">
+          ${histStr ? `<div class="lb-line-history" style="color:${lineMoveColor};">${histStr}</div>` : ''}
+        </td>
+        <td><input type="number" class="lb-edit" data-field="oddOver" data-key="${r.key}" value="${r.oddOver !== null && r.oddOver !== undefined ? r.oddOver : ''}" step="0.01" placeholder="–"></td>
+        <td><input type="number" class="lb-edit" data-field="oddUnder" data-key="${r.key}" value="${r.oddUnder !== null && r.oddUnder !== undefined ? r.oddUnder : ''}" step="0.01" placeholder="–"></td>
+        <td><span class="lb-age">${ageStr}</span></td>
+        <td><button class="lb-analyze-btn" data-key="${r.key}">→ Analyze</button></td>
+      </tr>`;
+    }
+  }
+  html += '</tbody></table>';
+  ctr.innerHTML = html;
+  if (metaEl) metaEl.textContent = `${resolved.length}/${Object.keys(board.lines).length} resolved`;
+
+  ctr.querySelectorAll('input.lb-edit').forEach(inp => {
+    inp.addEventListener('change', e => {
+      const key = e.target.dataset.key;
+      const field = e.target.dataset.field;
+      const val = e.target.value === '' ? null : parseFloat(e.target.value);
+      const entry = board.lines[key];
+      if (!entry) return;
+      if (!entry.history) entry.history = [];
+      entry.history.push({ ts: entry.lastUpdate, line: entry.line, oddOver: entry.oddOver, oddUnder: entry.oddUnder });
+      if (entry.history.length > 20) entry.history = entry.history.slice(-20);
+      entry[field] = val;
+      entry.lastUpdate = new Date().toISOString();
+      entry.edited = true;
+      safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+    });
+  });
+
+  ctr.querySelectorAll('.lb-analyze-btn').forEach(btn => {
+    btn.addEventListener('click', () => sendBoardEntryToAnalyze(btn.dataset.key));
+  });
+}
+
+function renderLineboardUnresolved() {
+  const ctr = el('#lineboard-unresolved');
+  if (!ctr) return;
+  if (!STATE.lineboardSelectedGame) { ctr.innerHTML = ''; return; }
+  const gid = STATE.lineboardSelectedGame.id;
+  const board = STATE.lineboardData[gid];
+  if (!board) { ctr.innerHTML = ''; return; }
+  const unresolved = Object.entries(board.lines).filter(kv => !kv[1].resolutionConfidence);
+  if (!unresolved.length) { ctr.innerHTML = ''; return; }
+
+  const game = STATE.lineboardSelectedGame;
+  const pool = (STATE.lineboardRosters[game.home_team && game.home_team.id] || [])
+    .concat(STATE.lineboardRosters[game.visitor_team && game.visitor_team.id] || [])
+    .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''));
+
+  const options = pool.map(p =>
+    `<option value="${p.id}">${p.first_name} ${p.last_name} (${(p.team && p.team.abbreviation) || '?'})</option>`
+  ).join('');
+
+  let html = `<div style="font-size:11px; letter-spacing:0.1em; color:var(--ink-faint); text-transform:uppercase; margin-bottom:8px;">⚠ Unresolved players (${unresolved.length})</div>`;
+  for (const [key, e] of unresolved) {
+    html += `<div class="lb-unresolved-card">
+      <div><strong>"${e.rawPlayer}"</strong> · ${e.stat.toUpperCase()} ${e.line} · over ${e.oddOver || '–'} / under ${e.oddUnder || '–'}</div>
+      <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+        <select class="lb-resolve-select" data-key="${key}" style="flex:1; min-width:180px;">
+          <option value="">— select correct player —</option>
+          ${options}
+        </select>
+        <button class="ghost lb-resolve-btn" data-key="${key}" style="padding:4px 10px; font-size:10px;">✓ Confirm</button>
+        <button class="ghost lb-discard-btn" data-key="${key}" style="padding:4px 10px; font-size:10px;">Discard</button>
+      </div>
+    </div>`;
+  }
+  ctr.innerHTML = html;
+
+  ctr.querySelectorAll('.lb-resolve-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const select = ctr.querySelector(`.lb-resolve-select[data-key="${key}"]`);
+      const pid = select.value;
+      if (!pid) { alert('Selecione um jogador.'); return; }
+      const chosen = pool.find(p => String(p.id) === pid);
+      if (!chosen) return;
+      const entry = board.lines[key];
+      entry.resolvedPlayer = chosen;
+      entry.resolutionConfidence = 'high';
+      entry.edited = true;
+      safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+      renderLineboardTable();
+      renderLineboardUnresolved();
+    });
+  });
+  ctr.querySelectorAll('.lb-discard-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete board.lines[btn.dataset.key];
+      safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+      renderLineboardTable();
+      renderLineboardUnresolved();
+      renderLineboardBadge();
+    });
+  });
+}
+
+function renderLineboardBadge() {
+  const total = Object.values(STATE.lineboardData || {}).reduce((s, b) => s + Object.keys(b.lines || {}).length, 0);
+  const badge = el('#lineboard-badge');
+  if (badge) {
+    badge.textContent = total;
+    badge.style.display = total > 0 ? '' : 'none';
+  }
+}
+
+async function sendBoardEntryToAnalyze(boardKey) {
+  if (!STATE.lineboardSelectedGame) { alert('Selecione um jogo primeiro.'); return; }
+  const game = STATE.lineboardSelectedGame;
+  const board = STATE.lineboardData[game.id];
+  if (!board) return;
+  const entry = board.lines[boardKey];
+  if (!entry) return;
+  if (!entry.resolvedPlayer) { alert('Jogador não resolvido. Resolve manualmente na seção unresolved.'); return; }
+
+  const player = entry.resolvedPlayer;
+
+  let opponentTeamId = null;
+  if (player.team && game.home_team && player.team.id === game.home_team.id) {
+    opponentTeamId = game.visitor_team && game.visitor_team.id;
+  } else if (player.team && game.visitor_team && player.team.id === game.visitor_team.id) {
+    opponentTeamId = game.home_team && game.home_team.id;
+  } else {
+    const ok = confirm(`O jogador ${player.first_name} ${player.last_name} (${(player.team && player.team.abbreviation) || '?'}) não bate com os times do jogo (${game.visitor_team && game.visitor_team.abbreviation} @ ${game.home_team && game.home_team.abbreviation}). Pode ser trade recente. Continuar mesmo assim e selecionar opponent manualmente?`);
+    if (!ok) return;
+  }
+
+  const side = 'over';
+  const primaryOdd = entry.oddOver;
+  const oppositeOdd = entry.oddUnder;
+
+  if (typeof selectPlayer === 'function') {
+    selectPlayer(player);
+  } else {
+    STATE.player = player;
+  }
+
+  switchTab('analyze');
+
+  await new Promise(r => setTimeout(r, 350));
+
+  const statSel = el('#stat-select'); if (statSel) statSel.value = entry.stat;
+  const sideSel = el('#side-select'); if (sideSel) sideSel.value = side;
+  const lineInp = el('#line-input'); if (lineInp) lineInp.value = entry.line;
+  const oddInp = el('#odd-input'); if (oddInp) oddInp.value = primaryOdd !== null && primaryOdd !== undefined ? primaryOdd : '';
+  const oddOppInp = el('#odd-opposite-input'); if (oddOppInp) oddOppInp.value = oppositeOdd !== null && oppositeOdd !== undefined ? oppositeOdd : '';
+
+  if (opponentTeamId) {
+    const oppSelect = el('#opponent-select');
+    if (oppSelect) {
+      let attempts = 0;
+      const trySet = () => {
+        if (oppSelect.querySelector(`option[value="${opponentTeamId}"]`)) {
+          oppSelect.value = opponentTeamId;
+          oppSelect.dispatchEvent(new Event('change'));
+        } else if (attempts < 5) {
+          attempts++;
+          setTimeout(trySet, 200);
+        }
+      };
+      trySet();
+    }
+  }
+
+  const gtSelect = el('#gametype-select');
+  if (gtSelect) gtSelect.value = game.postseason ? 'playoff-context' : 'all';
+
+  ['stat-select', 'side-select', 'line-input', 'odd-input', 'odd-opposite-input', 'gametype-select'].forEach(id => {
+    const e2 = el('#' + id);
+    if (e2) e2.dispatchEvent(new Event('change'));
+  });
+
+  await new Promise(r => setTimeout(r, 250));
+  if (typeof runAnalysis === 'function') runAnalysis();
+}
+
+// Initialize badge at boot
+renderLineboardBadge();
 
 // === v13: GLOBAL ERROR HANDLER ===
 // Catches uncaught errors and unhandled promise rejections to prevent white-screen.

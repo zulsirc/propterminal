@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.6 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.7 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -830,6 +830,12 @@
   }
   .lb-table input.lb-edit:focus { border-color: var(--accent); outline: none; }
   .lb-table input.lb-edit.lb-partial { border-color: var(--yellow); background: rgba(251,191,36,0.05); }
+  .lb-table input.lb-edit.lb-suspicious { border-color: #fb923c; background: rgba(251,146,60,0.08); }
+  .lb-table tr.lb-suspicious-row td:first-child::after {
+    content: '◆ suspeito';
+    font-size: 9px; color: #fb923c; margin-left: 8px;
+    letter-spacing: 0.05em;
+  }
   .lb-table .lb-age { font-size: 10px; color: var(--ink-faint); }
   .lb-confidence {
     display: inline-block;
@@ -1228,7 +1234,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.6 · Line Board · Study-Grade Capture</span>
+      <span class="tag">v13.8.7 · Line Board · Deterministic OCR Precision</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1626,15 +1632,22 @@
         <span class="meta" id="lineboard-board-meta">0 lines</span>
       </div>
       <div class="panel-body">
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
           <button class="primary" id="lineboard-analyze-all" style="padding:7px 14px;">⚡ Analyze all &amp; rank</button>
           <button class="ghost" id="lineboard-clear">Clear board</button>
           <button class="ghost" id="lineboard-lock">Lock board</button>
           <button class="ghost" id="lineboard-export">Export JSON</button>
+          <label style="font-size:10px; color:var(--ink-dim); display:flex; align-items:center; gap:5px; margin-left:auto; cursor:pointer;" title="Row-by-row OCR pass. Mais preciso, mas 3-5× mais lento por imagem.">
+            <input type="checkbox" id="lineboard-max-precision" checked style="margin:0;">
+            max precision (row-by-row OCR)
+          </label>
         </div>
         <div id="lineboard-batch-progress" class="hidden" style="margin-bottom:14px;">
           <div class="progress-bar"><div class="progress-bar-fill" id="lineboard-batch-progress-fill"></div></div>
-          <div id="lineboard-batch-progress-text" style="font-size:11px; color:var(--ink-dim); margin-top:4px;"></div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+            <div id="lineboard-batch-progress-text" style="font-size:11px; color:var(--ink-dim); flex:1;"></div>
+            <button class="ghost" id="lineboard-batch-cancel" style="padding:3px 10px; font-size:10px;">Cancel batch</button>
+          </div>
         </div>
         <div id="lineboard-ranked" style="margin-bottom:18px;"></div>
         <div id="lineboard-table"></div>
@@ -2622,7 +2635,7 @@ setInterval(() => RateLimiter.refill(), 1000);
 const inFlight = new Map();
 
 // === MAIN FETCH FUNCTION ===
-async function bdlFetch(path, params={}, useCache=true) {
+async function bdlFetch(path, params={}, useCache=true, retryCount=0) {
   if (!STATE.apiKey) throw new Error('no api key — set in Settings tab');
 
   // Build URL with per_page=100 default for paginated endpoints
@@ -2671,13 +2684,17 @@ async function bdlFetch(path, params={}, useCache=true) {
 
       const res = await fetch(url, { headers: { 'Authorization': STATE.apiKey } });
 
-      // Handle rate limit response: drop capacity and retry
+      // Handle rate limit response: drop capacity and retry (capped, v13.8.7)
       if (res.status === 429) {
         // API told us we hit the limit — be more conservative
         RateLimiter.setRate(Math.max(5, RateLimiter.refillRate * 60 * 0.7));
-        await sleep(5000);
+        if (retryCount >= 3) {
+          throw new Error('rate-limited (429) após 3 tentativas — pausa e tenta de novo');
+        }
+        const backoff = 5000 * Math.pow(1.5, retryCount);
+        await sleep(backoff);
         inFlight.delete(cacheKey); // allow retry as fresh request
-        return bdlFetch(path, params, useCache);
+        return bdlFetch(path, params, useCache, retryCount + 1);
       }
       if (res.status === 401) {
         // v13: flag odds unavailability if hit on /v2/odds endpoints
@@ -6079,6 +6096,37 @@ async function ensureTesseract() {
   });
 }
 
+// v13.8.7: Persistent Tesseract workers tuned for table OCR.
+// PSM 6 (uniform block) for full-page passes, PSM 7 (single line) for row crops
+// and numeric re-OCR. Cached so we don't reload language models per call.
+const _ocrWorkers = { general: null, line: null, numeric: null };
+async function getOcrWorker(kind) {
+  await ensureTesseract();
+  if (_ocrWorkers[kind]) return _ocrWorkers[kind];
+  if (kind === 'general') {
+    const w = await Tesseract.createWorker('eng+por');
+    await w.setParameters({ tessedit_pageseg_mode: '6', preserve_interword_spaces: '1' });
+    _ocrWorkers.general = w;
+    return w;
+  }
+  if (kind === 'line') {
+    const w = await Tesseract.createWorker('eng+por');
+    await w.setParameters({ tessedit_pageseg_mode: '7', preserve_interword_spaces: '1' });
+    _ocrWorkers.line = w;
+    return w;
+  }
+  if (kind === 'numeric') {
+    const w = await Tesseract.createWorker('eng');
+    await w.setParameters({
+      tessedit_pageseg_mode: '7',
+      tessedit_char_whitelist: '0123456789.,-+ ',
+    });
+    _ocrWorkers.numeric = w;
+    return w;
+  }
+  throw new Error('unknown OCR worker kind: ' + kind);
+}
+
 function confidenceScore(c) {
   return c === 'high' ? 3 : c === 'medium' ? 2 : c === 'low' ? 1 : 0;
 }
@@ -6125,15 +6173,19 @@ const LB = {
     return null;
   },
 
-  async preprocessImage(file) {
+  // v13.8.7: dual-profile preprocessing.
+  //   profile='sharp'  → strong contrast (1.9x) + soft binarization (current pipeline)
+  //   profile='gentle' → mild contrast (1.3x), no binarization (preserves thin strokes)
+  // Returns { canvas, blob } so callers can both feed Tesseract AND inspect pixels
+  // (used by row segmentation + numeric re-OCR).
+  async preprocessImage(file, profile) {
+    profile = profile || 'sharp';
     return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          // v13.8.5: aggressive upscale (1600px) + adaptive contrast around mean luminance.
-          // Helps when sportsbooks render odds in small font inside compressed cells.
           const targetWidth = 1600;
           const scale = img.width < targetWidth ? targetWidth / img.width : 1;
           canvas.width = Math.round(img.width * scale);
@@ -6144,26 +6196,26 @@ const LB = {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imgData.data;
-          // First pass: compute mean luminance for adaptive thresholding.
           let sumLum = 0;
           for (let i = 0; i < d.length; i += 4) {
             sumLum += 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
           }
           const meanLum = sumLum / (d.length / 4);
-          // Second pass: stronger contrast (1.4 -> 1.9) + soft-binarize around mean.
+          const contrast = profile === 'gentle' ? 1.3 : 1.9;
+          const binarize = profile !== 'gentle';
           for (let i = 0; i < d.length; i += 4) {
             const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-            let v = (lum - meanLum) * 1.9 + meanLum;
-            // Soft binarization: push extreme values further to the ends to make
-            // anti-aliased text edges sharper without losing thin stroke detail.
-            if (v < meanLum - 25) v = Math.max(0, v - 25);
-            else if (v > meanLum + 25) v = Math.min(255, v + 25);
+            let v = (lum - meanLum) * contrast + meanLum;
+            if (binarize) {
+              if (v < meanLum - 25) v = Math.max(0, v - 25);
+              else if (v > meanLum + 25) v = Math.min(255, v + 25);
+            }
             v = Math.max(0, Math.min(255, v));
             d[i] = d[i+1] = d[i+2] = v;
           }
           ctx.putImageData(imgData, 0, 0);
           URL.revokeObjectURL(url);
-          canvas.toBlob(blob => resolve(blob), 'image/png');
+          canvas.toBlob(blob => resolve({ canvas, blob }), 'image/png');
         } catch (e) {
           URL.revokeObjectURL(url);
           reject(e);
@@ -6174,21 +6226,169 @@ const LB = {
     });
   },
 
+  // v13.8.7: detect text rows via horizontal projection profile.
+  // Returns array of {y0, y1} for crops to feed PSM-7 line OCR.
+  detectRows(canvas) {
+    const w = canvas.width, h = canvas.height;
+    if (w < 50 || h < 50) return [];
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    const proj = new Float32Array(h);
+    for (let y = 0; y < h; y++) {
+      let sum = 0;
+      const base = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = base + x * 4;
+        const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        sum += (255 - lum); // higher = darker = more text-ish
+      }
+      proj[y] = sum / w;
+    }
+    let maxProj = 0;
+    for (let y = 0; y < h; y++) if (proj[y] > maxProj) maxProj = proj[y];
+    const threshold = maxProj * 0.12;
+    const rows = [];
+    let rowStart = -1;
+    for (let y = 0; y < h; y++) {
+      if (proj[y] > threshold) {
+        if (rowStart < 0) rowStart = y;
+      } else if (rowStart >= 0) {
+        if (y - rowStart >= 14) {
+          rows.push({ y0: Math.max(0, rowStart - 2), y1: Math.min(h, y + 2) });
+        }
+        rowStart = -1;
+      }
+    }
+    if (rowStart >= 0 && h - rowStart >= 14) {
+      rows.push({ y0: Math.max(0, rowStart - 2), y1: h });
+    }
+    // Cap to a sane number (don't OCR 200 rows on a noisy image)
+    return rows.slice(0, 60);
+  },
+
+  // v13.8.7: crop a row from a preprocessed canvas into a PNG blob, upscaled
+  // for better OCR of small fonts.
+  async cropRowBlob(canvas, row) {
+    const out = document.createElement('canvas');
+    const w = canvas.width, h = row.y1 - row.y0;
+    const scale = h < 40 ? 2 : 1.5;
+    out.width = Math.round(w * scale);
+    out.height = Math.round(h * scale);
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, row.y0, w, h, 0, 0, out.width, out.height);
+    return new Promise(r => out.toBlob(b => r(b), 'image/png'));
+  },
+
+  // v13.8.7: deterministic digit confusion fixes for numeric-looking tokens.
+  // Applied ONLY when the raw token is mostly digits (no risk of mangling names).
+  normalizeNumberToken(raw) {
+    if (!raw) return raw;
+    if (!/\d/.test(raw)) return raw;
+    const letters = (raw.match(/[a-zA-Z]/g) || []).length;
+    const digits = (raw.match(/\d/g) || []).length;
+    if (letters > digits) return raw; // looks like a name token
+    let s = raw;
+    s = s.replace(/[Oo]/g, '0');
+    s = s.replace(/[IlL|]/g, '1');
+    s = s.replace(/S/g, '5');
+    s = s.replace(/B/g, '8');
+    s = s.replace(/Z/g, '2');
+    s = s.replace(/G/g, '6');
+    s = s.replace(/[,.;:]+$/, '');
+    s = s.replace(/(\d),(\d)/g, '$1.$2');
+    return s;
+  },
+
+
   async fingerprint(file) {
     const buf = await file.arrayBuffer();
     const hash = await crypto.subtle.digest('SHA-256', buf);
     return Array.from(new Uint8Array(hash)).slice(0, 12).map(b => b.toString(16).padStart(2,'0')).join('');
   },
 
+  // v13.8.7: multi-pass OCR pipeline:
+  //   1. Profile-A (sharp) full-page    via PSM-6 worker
+  //   2. Profile-B (gentle) full-page   via PSM-6 worker  → merged with #1 by per-line confidence
+  //   3. Optionally row-segmented PSM-7 passes on profile-A canvas (max precision mode)
+  //   4. Last canvas + word boxes are stashed on the result for downstream numeric re-OCR.
+  // All numeric tokens still flow through LB.normalizeNumberToken before parsing.
   async ocrImage(file, onProgress) {
-    await ensureTesseract();
-    const processed = await LB.preprocessImage(file).catch(() => file);
-    const result = await Tesseract.recognize(processed, 'eng+por', {
-      logger: m => {
-        if (onProgress && m.status === 'recognizing text') onProgress(m.progress || 0);
-      },
-    });
-    return result.data;
+    const maxPrecision = (() => {
+      try { const cb = document.getElementById('lineboard-max-precision'); return cb ? !!cb.checked : true; }
+      catch(e) { return true; }
+    })();
+
+    const worker = await getOcrWorker('general');
+
+    if (onProgress) onProgress(0.02);
+    const prepA = await LB.preprocessImage(file, 'sharp').catch(() => null);
+    if (!prepA) {
+      // Fall back to raw file with the general worker.
+      const fallback = await worker.recognize(file);
+      return { lines: (fallback.data.lines || []).map(l => ({ text: l.text || '', conf: l.confidence || 0, words: l.words || [] })),
+               text: fallback.data.text || '', canvas: null };
+    }
+    if (onProgress) onProgress(0.08);
+    const resA = await worker.recognize(prepA.blob);
+    if (onProgress) onProgress(0.35);
+
+    const prepB = await LB.preprocessImage(file, 'gentle').catch(() => null);
+    let resB = null;
+    if (prepB) {
+      if (onProgress) onProgress(0.40);
+      resB = await worker.recognize(prepB.blob);
+    }
+    if (onProgress) onProgress(0.55);
+
+    const rawA = ((resA.data && resA.data.lines) || []).map(l => ({ text: l.text || '', conf: l.confidence || 0, words: l.words || [] }));
+    const rawB = ((resB && resB.data && resB.data.lines) || []).map(l => ({ text: l.text || '', conf: l.confidence || 0, words: l.words || [] }));
+
+    // Per-line voting: walk both line sequences in parallel, pick the one with higher
+    // confidence. We don't try to align by Y-coord because tesseract emits lines in
+    // a stable reading order across passes on the same image.
+    const merged = [];
+    const len = Math.max(rawA.length, rawB.length);
+    for (let i = 0; i < len; i++) {
+      const a = rawA[i], b = rawB[i];
+      if (a && b) merged.push((a.conf >= b.conf) ? a : b);
+      else if (a) merged.push(a);
+      else if (b) merged.push(b);
+    }
+
+    // Row-segmented PSM-7 pass (max precision mode).
+    if (maxPrecision) {
+      try {
+        const lineWorker = await getOcrWorker('line');
+        const rows = LB.detectRows(prepA.canvas);
+        for (let i = 0; i < rows.length; i++) {
+          const blob = await LB.cropRowBlob(prepA.canvas, rows[i]);
+          let res = null;
+          try { res = await lineWorker.recognize(blob); } catch(e) { continue; }
+          const text = ((res.data && res.data.text) || '').trim();
+          if (text.length >= 3) {
+            merged.push({
+              text,
+              conf: (res.data && res.data.confidence) || 0,
+              words: (res.data && res.data.words) || [],
+              rowSource: true,
+            });
+          }
+          if (onProgress) onProgress(0.55 + 0.40 * ((i + 1) / Math.max(1, rows.length)));
+        }
+      } catch(e) {
+        console.warn('row-segmented OCR failed, continuing with full-page only:', e && e.message);
+      }
+    }
+
+    if (onProgress) onProgress(1.0);
+    return {
+      lines: merged,
+      text: merged.map(l => l.text).join('\n'),
+      canvas: prepA.canvas, // for numeric re-OCR via LB.refineNumberCell
+    };
   },
 
   detectLayout(ocrLines, scopeHint) {
@@ -6257,7 +6457,16 @@ const LB = {
   },
 
   parsePlayerLine(raw, normalized, statHint, layout) {
-    const numbers = (normalized.match(/-?\d+\.?\d*/g) || []).map(parseFloat).filter(isFinite);
+    // v13.8.7: split by whitespace/separators and normalize each token. This
+    // recovers OCR-corrupted numbers like "1.B5" → "1.85", "O.95" → "0.95",
+    // "12,5" → "12.5", without touching the name portion (tokens with more
+    // letters than digits are left unchanged by normalizeNumberToken and then
+    // filtered out by parseFloat).
+    const rawTokens = normalized.split(/\s+|[;:|()\[\]]+/);
+    const numbers = rawTokens
+      .map(LB.normalizeNumberToken)
+      .map(t => parseFloat(t))
+      .filter(n => isFinite(n));
     if (numbers.length < 1) return null;
 
     const overInline = /\b(over|mais|acima)\b/i.test(normalized);
@@ -6355,9 +6564,17 @@ const LB = {
     return { player: name, stat, line, oddOver, oddUnder, ocrConfidence: 60, partial };
   },
 
-  parseOCR(ocrResult, scopeHint, layout) {
-    const ocrLines = (ocrResult.lines || []).map(l => ({ text: l.text || '', conf: l.confidence || 0 }));
-    const lines = ocrLines.length ? ocrLines : (ocrResult.text || '').split(/\r?\n/).map(t => ({ text: t.trim(), conf: 60 }));
+  // v13.8.7: async because of targeted numeric re-OCR for outlier entries.
+  async parseOCR(ocrResult, scopeHint, layout) {
+    // v13.8.7: tesseract worker emits {text, confidence, words}; our merged shape uses
+    // {text, conf, words}. Fall back gracefully for either.
+    const ocrLines = (ocrResult.lines || []).map(l => ({
+      text: l.text || '',
+      conf: (l.conf !== undefined ? l.conf : (l.confidence || 0)),
+      words: l.words || [],
+    }));
+    const lines = ocrLines.length ? ocrLines : (ocrResult.text || '').split(/\r?\n/).map(t => ({ text: t.trim(), conf: 60, words: [] }));
+    const canvas = ocrResult.canvas || null;
     const entries = [];
     const warnings = [];
 
@@ -6400,12 +6617,18 @@ const LB = {
         }
 
         const result = LB.parsePlayerLine(raw, normalized, currentStat || scopeHint, layout);
-        if (result) pending = result;
+        if (result) {
+          result._sourceWords = ln.words;
+          result._fromRowSource = !!ln.rowSource;
+          pending = result;
+        }
       }
       if (pending && pending.line !== null && (pending.oddOver !== null || pending.oddUnder !== null)) {
         const key = LB.normalizeName(pending.player) + '::' + pending.stat;
         if (!seenInThisUpload[key]) entries.push(pending);
       }
+      await LB._flagAndRefineOutliers(entries, canvas);
+      LB._stripInternalFields(entries);
       return { entries, warnings };
     }
 
@@ -6433,6 +6656,8 @@ const LB = {
         if (numCount >= 2 && hasLetters && !statKnown) droppedNoStat++;
         continue;
       }
+      rowResult._sourceWords = ln.words;
+      rowResult._fromRowSource = !!ln.rowSource;
 
       const key = LB.normalizeName(rowResult.player) + '::' + rowResult.stat;
       if (seenInThisUpload[key]) {
@@ -6446,12 +6671,123 @@ const LB = {
       entries.push(rowResult);
     }
 
+    await LB._flagAndRefineOutliers(entries, canvas);
+    LB._stripInternalFields(entries);
+
     const needsStatPrompt = droppedNoStat >= 3 && !entries.length;
     if (droppedNoStat >= 3 && entries.length) {
       warnings.push(`ℹ ${droppedNoStat} linhas adicionais ignoradas por falta de cabeçalho de stat.`);
     }
+    const suspiciousCount = entries.filter(e => e.suspicious).length;
+    if (suspiciousCount > 0) {
+      warnings.push(`◆ ${suspiciousCount} entrada(s) marcada(s) como suspeitas (odds fora do range do board). Revise antes de "Analyze all".`);
+    }
 
     return { entries, warnings, needsStatPrompt, droppedNoStat };
+  },
+
+  // v13.8.7: median + MAD-based outlier flag for odds within the same stat.
+  // For each flagged entry, attempt a re-OCR of the source row via the
+  // digit-whitelist worker. If the re-OCR'd numbers all fall in-range, replace.
+  async _flagAndRefineOutliers(entries, canvas) {
+    if (!entries || !entries.length) return;
+    const byStat = {};
+    for (const e of entries) {
+      if (!byStat[e.stat]) byStat[e.stat] = { over: [], under: [] };
+      if (e.oddOver !== null && e.oddOver !== undefined) byStat[e.stat].over.push(e.oddOver);
+      if (e.oddUnder !== null && e.oddUnder !== undefined) byStat[e.stat].under.push(e.oddUnder);
+    }
+    const medMAD = (arr) => {
+      if (!arr || arr.length < 3) return null;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const med = sorted[Math.floor(sorted.length / 2)];
+      const devs = sorted.map(x => Math.abs(x - med)).sort((a, b) => a - b);
+      const mad = devs[Math.floor(devs.length / 2)];
+      return { med, mad };
+    };
+    const stats = {};
+    for (const k of Object.keys(byStat)) {
+      stats[k] = { over: medMAD(byStat[k].over), under: medMAD(byStat[k].under) };
+    }
+    const isOutlier = (val, ms) => {
+      if (!ms || val === null || val === undefined) return false;
+      const sigma = Math.max(0.05, ms.mad * 1.4826);
+      return Math.abs(val - ms.med) > 3.5 * sigma;
+    };
+
+    for (const e of entries) {
+      const s = stats[e.stat];
+      if (!s) continue;
+      const overOut = isOutlier(e.oddOver, s.over);
+      const underOut = isOutlier(e.oddUnder, s.under);
+      if (!overOut && !underOut) continue;
+
+      // Try targeted re-OCR of the source row, if we have the canvas + word bboxes.
+      // Skip row-sourced entries: their word bboxes are in crop coords, not canvas coords.
+      let recovered = false;
+      if (canvas && e._sourceWords && e._sourceWords.length && !e._fromRowSource) {
+        const ws = e._sourceWords.filter(w => w && w.bbox);
+        if (ws.length) {
+          const x0 = Math.min.apply(null, ws.map(w => w.bbox.x0));
+          const y0 = Math.min.apply(null, ws.map(w => w.bbox.y0));
+          const x1 = Math.max.apply(null, ws.map(w => w.bbox.x1));
+          const y1 = Math.max.apply(null, ws.map(w => w.bbox.y1));
+          if (x1 - x0 > 40 && y1 - y0 > 10) {
+            const refined = await LB._refineRowNumbers(canvas, { x0, y0, x1, y1 });
+            if (refined && refined.length) {
+              // Expect [line, oddOver, oddUnder] or some permutation. Use the same
+              // assignment heuristic as parsePlayerLine: half-int = line, others within
+              // 1.10-7.00 = odds.
+              const halfNum = refined.find(n => Math.abs(n - Math.round(n)) > 0.4 && n > 0 && n < 100);
+              const odds = refined.filter(n => n >= 1.10 && n <= 7.00 && n !== halfNum);
+              if (halfNum !== undefined && odds.length >= 2) {
+                // Check the refined odds are themselves in-range relative to the board.
+                const newOver = odds[0], newUnder = odds[1];
+                const refinedOverOK = !isOutlier(newOver, s.over);
+                const refinedUnderOK = !isOutlier(newUnder, s.under);
+                if (refinedOverOK && refinedUnderOK && Math.abs(halfNum - e.line) < 5) {
+                  e.line = halfNum;
+                  e.oddOver = newOver;
+                  e.oddUnder = newUnder;
+                  e.ocrConfidence = Math.max(e.ocrConfidence || 0, 75);
+                  recovered = true;
+                }
+              }
+            }
+          }
+        }
+      }
+      if (!recovered) e.suspicious = true;
+    }
+  },
+
+  // v13.8.7: re-OCR an arbitrary line bbox using the digit-whitelist worker.
+  // Returns an array of all numbers found, or null on failure.
+  async _refineRowNumbers(canvas, bbox) {
+    if (!canvas || !bbox) return null;
+    const cropW = bbox.x1 - bbox.x0, cropH = bbox.y1 - bbox.y0;
+    if (cropW < 30 || cropH < 8) return null;
+    let worker;
+    try { worker = await getOcrWorker('numeric'); } catch(e) { return null; }
+    const out = document.createElement('canvas');
+    const scale = 2.5;
+    out.width = Math.round(cropW * scale);
+    out.height = Math.round(cropH * scale);
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, bbox.x0, bbox.y0, cropW, cropH, 0, 0, out.width, out.height);
+    const blob = await new Promise(r => out.toBlob(b => r(b), 'image/png'));
+    try {
+      const result = await worker.recognize(blob);
+      const text = ((result.data && result.data.text) || '').trim();
+      const nums = (text.match(/-?\d+\.?\d*/g) || []).map(parseFloat).filter(isFinite);
+      return nums.length ? nums : null;
+    } catch(e) { return null; }
+  },
+
+  _stripInternalFields(entries) {
+    for (const e of entries) { delete e._sourceWords; delete e._fromRowSource; }
   },
 
   resolveAgainstRosters(rawName) {
@@ -6589,6 +6925,9 @@ const LB = {
         existing.rawPlayer = e.player;
         existing.ocrConfidence = e.ocrConfidence || existing.ocrConfidence;
         if (bookHint) existing.bookHint = bookHint;
+        // v13.8.7: refresh suspicious flag from incoming OCR. If the new pass cleared it
+        // (re-OCR succeeded) we shouldn't keep the old flag around either.
+        existing.suspicious = !!e.suspicious;
         // Recompute fair on the new state
         const fair = LB.computeFair(existing.oddOver, existing.oddUnder);
         existing.fairOver = fair && fair.fairOver;
@@ -6619,6 +6958,7 @@ const LB = {
           conflicts: 0,
           ocrConfidence: e.ocrConfidence,
           partial: !!e.partial,
+          suspicious: !!e.suspicious,
           bookHint: bookHint || null,
         };
         added++;
@@ -6823,6 +7163,14 @@ function wireLineboardOnce() {
   const analyzeAllBtn = el('#lineboard-analyze-all');
   if (analyzeAllBtn) analyzeAllBtn.addEventListener('click', analyzeAllBoard);
 
+  // v13.8.7: cancel-batch button stops the analyze-all loop at the next iteration boundary.
+  const batchCancelBtn = el('#lineboard-batch-cancel');
+  if (batchCancelBtn) batchCancelBtn.addEventListener('click', () => {
+    _analyzeAllAbort = true;
+    const textEl = el('#lineboard-batch-progress-text');
+    if (textEl) textEl.textContent = '⏹ cancelando após próximo prop...';
+  });
+
   const exportBtn = el('#lineboard-export');
   if (exportBtn) exportBtn.addEventListener('click', () => {
     if (!STATE.lineboardSelectedGame) return;
@@ -6933,7 +7281,7 @@ async function handleLineboardFiles(fileList) {
         if (fillEl) fillEl.style.width = (((i + p) / files.length) * 100) + '%';
       });
 
-      const ocrLinesForDetect = (ocrResult.lines || []).map(l => ({ text: l.text || '', conf: l.confidence || 0 }));
+      const ocrLinesForDetect = (ocrResult.lines || []).map(l => ({ text: l.text || '', conf: (l.conf !== undefined ? l.conf : (l.confidence || 0)) }));
       const detected = LB.detectLayout(
         ocrLinesForDetect.length ? ocrLinesForDetect : [{ text: ocrResult.text || '' }],
         scope
@@ -6956,7 +7304,7 @@ async function handleLineboardFiles(fileList) {
         board.rememberedLayout = Object.assign({}, detected, { learnedAt: new Date().toISOString(), source: 'detected' });
       }
 
-      const parsed = LB.parseOCR(ocrResult, scope, effectiveLayout);
+      const parsed = await LB.parseOCR(ocrResult, scope, effectiveLayout);
       const entries = parsed.entries;
       const warnings = parsed.warnings;
       for (const w of warnings) allWarnings.push(w);
@@ -7048,21 +7396,21 @@ function renderStatPrompt(pending) {
     </div>
   `;
   const applyBtn = el('#lineboard-stat-prompt-apply');
-  if (applyBtn) applyBtn.addEventListener('click', () => {
+  if (applyBtn) applyBtn.addEventListener('click', async () => {
     const stat = el('#lineboard-stat-prompt-select').value;
-    applyPendingStatRetry(pending, stat);
+    await applyPendingStatRetry(pending, stat);
   });
   const dismissBtn = el('#lineboard-stat-prompt-dismiss');
   if (dismissBtn) dismissBtn.addEventListener('click', clearStatPrompt);
 }
 
-function applyPendingStatRetry(pending, stat) {
+async function applyPendingStatRetry(pending, stat) {
   if (!STATE.lineboardSelectedGame) return;
   const gid = STATE.lineboardSelectedGame.id;
   const board = STATE.lineboardData[gid];
   let totalAdded = 0, totalUpdated = 0, totalEmpty = 0;
   for (const item of pending) {
-    const reParsed = LB.parseOCR(item.ocrResult, stat, item.layout);
+    const reParsed = await LB.parseOCR(item.ocrResult, stat, item.layout);
     if (!reParsed.entries.length) { totalEmpty++; continue; }
     const ctx = item.uploadCtx || { fp: null, ts: new Date().toISOString(), fileName: item.fileName, bookHint: null };
     ctx.linesParsed = reParsed.entries.length;
@@ -7166,7 +7514,7 @@ function renderLineboardTable() {
       const lineMoveColor = lastHist && lastHist.line !== r.line
         ? (r.line > lastHist.line ? 'var(--green)' : 'var(--red)') : 'var(--ink-faint)';
 
-      html += `<tr class="${recent ? 'recent' : ''}" data-key="${r.key}">
+      html += `<tr class="${recent ? 'recent' : ''}${r.suspicious ? ' lb-suspicious-row' : ''}" data-key="${r.key}">
         <td>
           <span class="lb-confidence ${r.resolutionConfidence}"></span>
           <span class="lb-player">${player.first_name} ${player.last_name}</span>
@@ -7178,8 +7526,8 @@ function renderLineboardTable() {
           <input type="number" class="lb-edit" data-field="line" data-key="${r.key}" value="${r.line}" step="0.5">
           ${histStr ? `<div class="lb-line-history" style="color:${lineMoveColor};">${histStr}</div>` : ''}
         </td>
-        <td><input type="number" class="lb-edit ${r.partial && r.oddOver === null ? 'lb-partial' : ''}" data-field="oddOver" data-key="${r.key}" value="${r.oddOver !== null && r.oddOver !== undefined ? Number(r.oddOver).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
-        <td><input type="number" class="lb-edit ${r.partial && r.oddUnder === null ? 'lb-partial' : ''}" data-field="oddUnder" data-key="${r.key}" value="${r.oddUnder !== null && r.oddUnder !== undefined ? Number(r.oddUnder).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
+        <td><input type="number" class="lb-edit ${r.partial && r.oddOver === null ? 'lb-partial' : ''}${r.suspicious ? ' lb-suspicious' : ''}" data-field="oddOver" data-key="${r.key}" value="${r.oddOver !== null && r.oddOver !== undefined ? Number(r.oddOver).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
+        <td><input type="number" class="lb-edit ${r.partial && r.oddUnder === null ? 'lb-partial' : ''}${r.suspicious ? ' lb-suspicious' : ''}" data-field="oddUnder" data-key="${r.key}" value="${r.oddUnder !== null && r.oddUnder !== undefined ? Number(r.oddUnder).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
         <td><span class="lb-age">${ageStr}</span>${(r.history && r.history.length) ? `<div style="font-size:9px;color:var(--ink-faint);margin-top:2px;">📊 ${r.history.length} snap${r.history.length > 1 ? 's' : ''}</div>` : ''}${r.vigPct !== undefined && r.vigPct !== null ? `<div style="font-size:9px;color:var(--ink-faint);margin-top:1px;">vig ${r.vigPct.toFixed(1)}%</div>` : ''}</td>
         <td><button class="lb-analyze-btn" data-key="${r.key}">→ Analyze</button></td>
       </tr>`;
@@ -7221,7 +7569,11 @@ function renderLineboardTable() {
       entry.vigPct = newFair && newFair.vigPct;
       entry.lastUpdate = new Date().toISOString();
       entry.edited = true;
+      // v13.8.7: user reviewed → clear the suspicious flag so Analyze All picks it up.
+      const wasSuspicious = !!entry.suspicious;
+      entry.suspicious = false;
       safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+      if (wasSuspicious) renderLineboardTable();
     });
   });
 
@@ -7384,21 +7736,39 @@ async function analyzeAllBoard() {
   const gid = STATE.lineboardSelectedGame.id;
   const board = STATE.lineboardData[gid];
   if (!board) return;
-  const resolved = Object.entries(board.lines).filter(kv => kv[1].resolutionConfidence);
-  if (!resolved.length) { alert('Sem linhas resolvidas. Resolve os jogadores em "Unresolved" antes.'); return; }
+  const resolvedAll = Object.entries(board.lines).filter(kv => kv[1].resolutionConfidence);
+  if (!resolvedAll.length) { alert('Sem linhas resolvidas. Resolve os jogadores em "Unresolved" antes.'); return; }
+
+  // v13.8.7: exclude suspicious entries (orange flag) from batch ranking. They
+  // need manual review first to avoid poisoning the edge ordering.
+  const resolved = resolvedAll.filter(kv => !kv[1].suspicious);
+  const suspiciousSkipped = resolvedAll.length - resolved.length;
+  if (!resolved.length) {
+    alert(`Todas as ${resolvedAll.length} linhas resolvidas estão marcadas como suspeitas (◆). Revise/edite os odds antes de rodar batch.`);
+    return;
+  }
 
   const game = STATE.lineboardSelectedGame;
   const total = resolved.length;
-  const okGo = confirm(`Vai rodar análise pra ${total} props.\n\nIsso vai gastar ~${total} chamadas à API e demorar ${Math.ceil(total * 2)}-${Math.ceil(total * 4)}s.\n\nContinuar?`);
+  const extraMsg = suspiciousSkipped > 0
+    ? `\n\n◆ ${suspiciousSkipped} entrada(s) suspeita(s) excluída(s). Revise-as antes ou edite manualmente para incluí-las.`
+    : '';
+  const okGo = confirm(`Vai rodar análise pra ${total} props.\n\nIsso vai gastar ~${total} chamadas à API e demorar ${Math.ceil(total * 3)}-${Math.ceil(total * 6)}s.${extraMsg}\n\nContinuar?`);
   if (!okGo) return;
 
   _analyzeAllAbort = false;
   const progEl = el('#lineboard-batch-progress');
   const fillEl = el('#lineboard-batch-progress-fill');
   const textEl = el('#lineboard-batch-progress-text');
+  const cancelBtn = el('#lineboard-batch-cancel');
   const rankedEl = el('#lineboard-ranked');
   if (progEl) progEl.classList.remove('hidden');
   if (rankedEl) rankedEl.innerHTML = '';
+
+  // v13.8.7: throttle by tier. Conservative 1.5s default; if the limiter rate is
+  // very low (Free tier) bump it up.
+  const ratePerMin = (RateLimiter && RateLimiter.refillRate) ? (RateLimiter.refillRate * 60) : 60;
+  const delayMs = ratePerMin <= 10 ? 12000 : ratePerMin <= 30 ? 3000 : 1500;
 
   // Save current Analyze tab inputs to restore after batch
   const savedPlayer = STATE.player;
@@ -7410,6 +7780,17 @@ async function analyzeAllBoard() {
     oddOpp: (el('#odd-opposite-input') || {}).value,
     opp: (el('#opponent-select') || {}).value,
     gt: (el('#gametype-select') || {}).value,
+  };
+
+  // v13.8.7: race runAnalysis against a 30s wall clock. If runAnalysis hangs on
+  // some unexpected path, the loop still moves on. Underlying request continues
+  // in the background — next iteration overwrites STATE.player + inputs.
+  const withTimeout = (p, ms) => {
+    let timer;
+    const timeoutP = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('analysis timeout (' + ms + 'ms)')), ms);
+    });
+    return Promise.race([p, timeoutP]).finally(() => clearTimeout(timer));
   };
 
   const results = [];
@@ -7426,12 +7807,6 @@ async function analyzeAllBoard() {
       if (player.team && game.home_team && player.team.id === game.home_team.id) oppId = game.visitor_team && game.visitor_team.id;
       else if (player.team && game.visitor_team && player.team.id === game.visitor_team.id) oppId = game.home_team && game.home_team.id;
 
-      // Choose side: if both odds present, pick the one with HIGHER implied edge candidate (over by default).
-      // We'll run BOTH sides and pick the better. But to save API calls, run just Over first;
-      // if Over edge < 0 and we have oddUnder, also try Under. Simpler: just run side with the lower
-      // odd as primary (lower odd = higher implied prob = book thinks it's more likely).
-      // Actually simplest: prefer Over, run once. User can flip in Analyze tab manually for the top picks.
-      // To keep batch fast, run only ONE side per entry based on which one exists.
       let side, primaryOdd, oppositeOdd;
       if (e.oddOver !== null && e.oddUnder !== null) {
         side = 'over'; primaryOdd = e.oddOver; oppositeOdd = e.oddUnder;
@@ -7450,16 +7825,15 @@ async function analyzeAllBoard() {
       const oppSel = el('#opponent-select'); if (oppSel && oppId) oppSel.value = oppId;
       const gtSel = el('#gametype-select'); if (gtSel) gtSel.value = game.postseason ? 'playoff-context' : 'all';
 
-      // Reset lastAnalysis so we can detect a failure (analysis didn't update it)
       const beforeTs = STATE.lastAnalysis && STATE.lastAnalysis.timestamp;
-      await runAnalysis();
+      await withTimeout(runAnalysis(), 30000);
       const after = STATE.lastAnalysis;
       if (!after || after.timestamp === beforeTs) {
         results.push({ key, entry: e, side, primaryOdd, error: 'analysis did not produce a result' });
+        if (i < resolved.length - 1) await sleep(delayMs);
         continue;
       }
 
-      // Also run the opposite side if both odds present, to find the better edge
       let bestSide = side, bestEdge = after.edge, bestEV = after.ev, bestRes = after, bestOdd = primaryOdd;
       if (e.oddOver !== null && e.oddUnder !== null) {
         const otherSide = side === 'over' ? 'under' : 'over';
@@ -7469,7 +7843,7 @@ async function analyzeAllBoard() {
         if (oddInp) oddInp.value = otherOdd;
         if (oddOppInp) oddOppInp.value = otherOpp !== null && otherOpp !== undefined ? otherOpp : '';
         const beforeTs2 = STATE.lastAnalysis && STATE.lastAnalysis.timestamp;
-        await runAnalysis();
+        try { await withTimeout(runAnalysis(), 30000); } catch(e2) { /* keep best so far */ }
         const after2 = STATE.lastAnalysis;
         if (after2 && after2.timestamp !== beforeTs2 && (after2.edge || 0) > (bestEdge || 0)) {
           bestSide = otherSide; bestEdge = after2.edge; bestEV = after2.ev; bestRes = after2; bestOdd = otherOdd;
@@ -7490,8 +7864,15 @@ async function analyzeAllBoard() {
       });
     } catch (err) {
       console.error('analyzeAllBoard error for', e, err);
-      results.push({ key, entry: e, error: err.message });
+      const msg = (err && err.message) || String(err);
+      // v13.8.7: surface rate-limit pauses with a clearer message and a longer cooldown.
+      if (/rate-limited|429/i.test(msg)) {
+        if (textEl) textEl.textContent = `⏸ rate-limited (${i+1}/${total}), pausando 8s...`;
+        await sleep(8000);
+      }
+      results.push({ key, entry: e, error: msg });
     }
+    if (i < resolved.length - 1 && !_analyzeAllAbort) await sleep(delayMs);
   }
 
   // Restore Analyze tab inputs
@@ -7506,8 +7887,12 @@ async function analyzeAllBoard() {
   restore('#gametype-select', savedInputs.gt);
 
   if (fillEl) fillEl.style.width = '100%';
-  if (textEl) textEl.textContent = `✓ ${results.filter(r => !r.error).length}/${total} analisadas`;
-  setTimeout(() => { if (progEl) progEl.classList.add('hidden'); if (fillEl) fillEl.style.width = '0%'; }, 2500);
+  const okCount = results.filter(r => !r.error).length;
+  const errCount = results.length - okCount;
+  const abortedTxt = _analyzeAllAbort ? ' · ABORTADO' : '';
+  const susTxt = suspiciousSkipped > 0 ? ` · ${suspiciousSkipped} suspeitas puladas` : '';
+  if (textEl) textEl.textContent = `✓ ${okCount} ok · ${errCount} erro${abortedTxt}${susTxt}`;
+  setTimeout(() => { if (progEl) progEl.classList.add('hidden'); if (fillEl) fillEl.style.width = '0%'; }, 4000);
 
   renderRankedBoard(results);
 }

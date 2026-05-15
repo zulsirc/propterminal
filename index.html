@@ -1610,6 +1610,7 @@
         </div>
 
         <div id="lineboard-warnings" style="margin-top:10px;"></div>
+        <div id="lineboard-stat-prompt" class="hidden" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -6364,13 +6365,12 @@ const LB = {
       entries.push(rowResult);
     }
 
-    if (droppedNoStat >= 3 && !entries.length) {
-      warnings.push(`⚠ ${droppedNoStat} linhas com player + line + odds detectadas, mas sem cabeçalho de stat no print (ex: "POINTS"). Selecione manualmente o "Stat scope hint" acima (provavelmente "Points") e refaça o upload.`);
-    } else if (droppedNoStat >= 3) {
-      warnings.push(`ℹ ${droppedNoStat} linhas adicionais foram ignoradas por falta de cabeçalho de stat. Se precisava delas, ajuste o "Stat scope hint" e reupload.`);
+    const needsStatPrompt = droppedNoStat >= 3 && !entries.length;
+    if (droppedNoStat >= 3 && entries.length) {
+      warnings.push(`ℹ ${droppedNoStat} linhas adicionais ignoradas por falta de cabeçalho de stat.`);
     }
 
-    return { entries, warnings };
+    return { entries, warnings, needsStatPrompt, droppedNoStat };
   },
 
   resolveAgainstRosters(rawName) {
@@ -6747,6 +6747,8 @@ async function handleLineboardFiles(fileList) {
   }
   const board = STATE.lineboardData[game.id];
 
+  const pendingStatRetry = [];
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (textEl) textEl.textContent = `OCR ${i+1}/${files.length}: ${file.name}`;
@@ -6795,6 +6797,12 @@ async function handleLineboardFiles(fileList) {
       const warnings = parsed.warnings;
       for (const w of warnings) allWarnings.push(w);
 
+      if (parsed.needsStatPrompt) {
+        // Hold this OCR result in memory; prompt user for stat after loop.
+        pendingStatRetry.push({ fileName: file.name, ocrResult, layout: effectiveLayout });
+        continue;
+      }
+
       if (!entries.length) {
         allWarnings.push(`⚠ ${file.name}: nenhuma linha detectada (resolução baixa?)`);
         continue;
@@ -6823,6 +6831,79 @@ async function handleLineboardFiles(fileList) {
     ).join('');
   }
 
+  safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+  renderLineboardGameInfo();
+  renderLineboardTable();
+  renderLineboardUnresolved();
+  renderLineboardBadge();
+
+  if (pendingStatRetry.length) renderStatPrompt(pendingStatRetry);
+  else clearStatPrompt();
+}
+
+function clearStatPrompt() {
+  const ctr = el('#lineboard-stat-prompt');
+  if (ctr) { ctr.classList.add('hidden'); ctr.innerHTML = ''; }
+}
+
+function renderStatPrompt(pending) {
+  const ctr = el('#lineboard-stat-prompt');
+  if (!ctr) return;
+  ctr.classList.remove('hidden');
+  const filesStr = pending.map(p => p.fileName).join(', ');
+  ctr.innerHTML = `
+    <div style="padding:14px; background:rgba(96,165,250,0.06); border-left:2px solid #60a5fa; font-size:12px;">
+      <div style="margin-bottom:6px; color:#60a5fa; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; font-size:11px;">
+        ⓘ Stat needed (${pending.length} print${pending.length > 1 ? 's' : ''})
+      </div>
+      <div style="color:var(--ink-dim); margin-bottom:12px; line-height:1.5;">
+        Não consegui identificar qual stat tem no${pending.length > 1 ? 's' : ''} print${pending.length > 1 ? 's' : ''} <em style="color:var(--ink);">${filesStr}</em> — não tem cabeçalho do tipo "POINTS"/"REBOUNDS" e o seletor estava em "auto". Diga qual stat é embaixo e eu reprocesso o OCR que já tá em memória, sem precisar reupload.
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <select id="lineboard-stat-prompt-select" style="flex:1; min-width:160px; padding:6px 8px;">
+          <option value="pts">Points</option>
+          <option value="reb">Rebounds</option>
+          <option value="ast">Assists</option>
+          <option value="pra">PRA (P+R+A)</option>
+          <option value="pr">PR (P+R)</option>
+          <option value="pa">PA (P+A)</option>
+          <option value="ra">RA (R+A)</option>
+          <option value="fg3m">3-Pointers Made</option>
+          <option value="stl">Steals</option>
+          <option value="blk">Blocks</option>
+          <option value="tov">Turnovers</option>
+        </select>
+        <button class="primary" id="lineboard-stat-prompt-apply" style="padding:6px 14px;">Apply & retry</button>
+        <button class="ghost" id="lineboard-stat-prompt-dismiss" style="padding:6px 12px;">Dismiss</button>
+      </div>
+    </div>
+  `;
+  const applyBtn = el('#lineboard-stat-prompt-apply');
+  if (applyBtn) applyBtn.addEventListener('click', () => {
+    const stat = el('#lineboard-stat-prompt-select').value;
+    applyPendingStatRetry(pending, stat);
+  });
+  const dismissBtn = el('#lineboard-stat-prompt-dismiss');
+  if (dismissBtn) dismissBtn.addEventListener('click', clearStatPrompt);
+}
+
+function applyPendingStatRetry(pending, stat) {
+  if (!STATE.lineboardSelectedGame) return;
+  const gid = STATE.lineboardSelectedGame.id;
+  let totalAdded = 0, totalUpdated = 0, totalEmpty = 0;
+  for (const item of pending) {
+    const reParsed = LB.parseOCR(item.ocrResult, stat, item.layout);
+    if (!reParsed.entries.length) { totalEmpty++; continue; }
+    const result = LB.applyEntries(gid, reParsed.entries);
+    totalAdded += result.added;
+    totalUpdated += result.updated;
+  }
+  clearStatPrompt();
+  const textEl = el('#lineboard-progress-text');
+  const progressEl = el('#lineboard-progress');
+  if (progressEl) progressEl.classList.remove('hidden');
+  if (textEl) textEl.textContent = `✓ retry: ${totalAdded} new · ${totalUpdated} updated${totalEmpty ? ' · ' + totalEmpty + ' ainda vazio' : ''}`;
+  setTimeout(() => { if (progressEl) progressEl.classList.add('hidden'); }, 2500);
   safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
   renderLineboardGameInfo();
   renderLineboardTable();

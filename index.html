@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.5 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.6 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1228,7 +1228,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.5 · Line Board · Batch Analyze + Sharper OCR</span>
+      <span class="tag">v13.8.6 · Line Board · Study-Grade Capture</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1598,6 +1598,11 @@
           </div>
         </details>
 
+        <div class="filter-group" style="margin-top:10px;">
+          <label>Sportsbook (optional) <span class="tip" data-tip="Tag opcional do print: ajuda a comparar linhas entre casas no estudo posterior. Ex: Bet365, Stake, PrizePicks.">?</span></label>
+          <input type="text" id="lineboard-book" placeholder="ex: Bet365, Stake, PrizePicks" maxlength="40">
+        </div>
+
         <div id="lineboard-dropzone" class="lb-dropzone">
           <div style="font-size: 28px;">📷</div>
           <div style="margin-top: 6px;">Drop screenshots here</div>
@@ -1936,6 +1941,14 @@
           <div class="metric">
             <div class="lbl">Games on Board</div>
             <div class="val" id="p-lb-games">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">History Snapshots</div>
+            <div class="val" id="p-lb-snaps">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Uploads Tracked</div>
+            <div class="val" id="p-lb-uploads">0</div>
           </div>
         </div>
 
@@ -4947,11 +4960,19 @@ function renderProfile() {
   $('#p-snapshot-size').textContent = (snapshotSize / 1024).toFixed(1) + ' KB';
 
   // v13.8.4: lineboard footprint — gives user visual confirmation that OCR captures persist
+  // v13.8.6: also surface total history snapshots (the "study dataset" depth)
   const lbData = STATE.lineboardData || {};
   const lbGames = Object.keys(lbData).length;
   const lbLines = Object.values(lbData).reduce((s, b) => s + Object.keys((b && b.lines) || {}).length, 0);
+  const lbSnapshots = Object.values(lbData).reduce((s, b) => {
+    const lines = (b && b.lines) || {};
+    return s + Object.values(lines).reduce((s2, e) => s2 + 1 + ((e.history && e.history.length) || 0), 0);
+  }, 0);
+  const lbUploads = Object.values(lbData).reduce((s, b) => s + ((b && b.uploads && b.uploads.length) || 0), 0);
   const lbEl1 = el('#p-lb-lines'); if (lbEl1) lbEl1.textContent = lbLines;
   const lbEl2 = el('#p-lb-games'); if (lbEl2) lbEl2.textContent = lbGames;
+  const lbEl3 = el('#p-lb-snaps'); if (lbEl3) lbEl3.textContent = lbSnapshots;
+  const lbEl4 = el('#p-lb-uploads'); if (lbEl4) lbEl4.textContent = lbUploads;
 }
 
 function buildSnapshot() {
@@ -6475,21 +6496,60 @@ const LB = {
     return { player: confidence ? best : null, confidence };
   },
 
-  applyEntries(gameId, entries) {
+  // v13.8.6: no-vig fair odds. Given over and under, returns {fairOver, fairUnder, vigPct}.
+  // Useful for normalizing across sportsbooks (vig 4-10% varies and skews raw odd comparison).
+  computeFair(over, under) {
+    if (over === null || over === undefined || under === null || under === undefined) return null;
+    if (!isFinite(over) || !isFinite(under) || over <= 1 || under <= 1) return null;
+    const pOver = 1 / over;
+    const pUnder = 1 / under;
+    const total = pOver + pUnder;
+    if (total <= 0) return null;
+    const fairOver = +(total / pOver).toFixed(4);
+    const fairUnder = +(total / pUnder).toFixed(4);
+    const vigPct = +(((total - 1) * 100)).toFixed(2);
+    return { fairOver, fairUnder, vigPct };
+  },
+
+  applyEntries(gameId, entries, uploadCtx) {
     if (!STATE.lineboardData[gameId]) {
       STATE.lineboardData[gameId] = {
         gameInfo: STATE.lineboardSelectedGame,
         lines: {},
         locked: false,
-        uploadFingerprints: [],
+        uploads: [],
         rememberedLayout: null,
       };
     }
     const board = STATE.lineboardData[gameId];
+    // v13.8.6: backwards-compat migration of old uploadFingerprints[] array
+    if (!board.uploads) {
+      board.uploads = (board.uploadFingerprints || []).map(fp => ({ fp, ts: null, fileName: '(legacy)', bookHint: null, legacy: true }));
+      delete board.uploadFingerprints;
+    }
     if (board.locked) return { updated: 0, added: 0, skipped: entries.length, unresolved: 0, locked: true };
 
     const now = new Date().toISOString();
+    const uploadFp = uploadCtx && uploadCtx.fp;
+    const bookHint = uploadCtx && uploadCtx.bookHint;
     let updated = 0, added = 0, unresolved = 0;
+
+    const makeHistorySnapshot = (state, source) => {
+      const fair = LB.computeFair(state.oddOver, state.oddUnder);
+      return {
+        ts: state.lastUpdate || now,
+        line: state.line,
+        oddOver: state.oddOver,
+        oddUnder: state.oddUnder,
+        fairOver: fair && fair.fairOver,
+        fairUnder: fair && fair.fairUnder,
+        vigPct: fair && fair.vigPct,
+        source,
+        uploadFp: uploadFp || null,
+        bookHint: bookHint || null,
+        ocrConfidence: state.ocrConfidence || null,
+      };
+    };
 
     for (const e of entries) {
       const resolution = LB.resolveAgainstRosters(e.player);
@@ -6498,27 +6558,49 @@ const LB = {
 
       if (existing && existing.edited) {
         if (!existing.history) existing.history = [];
-        existing.history.push({ ts: existing.lastUpdate, line: e.line, oddOver: e.oddOver, oddUnder: e.oddUnder, source: 'ocr-overridden' });
-        if (existing.history.length > 20) existing.history = existing.history.slice(-20);
+        // record what the OCR WOULD have set (but we're keeping the manual edit)
+        existing.history.push({
+          ts: now,
+          line: e.line,
+          oddOver: e.oddOver,
+          oddUnder: e.oddUnder,
+          fairOver: (LB.computeFair(e.oddOver, e.oddUnder) || {}).fairOver || null,
+          fairUnder: (LB.computeFair(e.oddOver, e.oddUnder) || {}).fairUnder || null,
+          vigPct: (LB.computeFair(e.oddOver, e.oddUnder) || {}).vigPct || null,
+          source: 'ocr-overridden',
+          uploadFp: uploadFp || null,
+          bookHint: bookHint || null,
+          ocrConfidence: e.ocrConfidence || null,
+        });
+        if (existing.history.length > 30) existing.history = existing.history.slice(-30);
         existing.lastUpdate = now;
         continue;
       }
 
       if (existing) {
         if (!existing.history) existing.history = [];
-        existing.history.push({ ts: existing.lastUpdate, line: existing.line, oddOver: existing.oddOver, oddUnder: existing.oddUnder });
-        if (existing.history.length > 20) existing.history = existing.history.slice(-20);
+        // Push PREVIOUS state to history before overwriting
+        existing.history.push(makeHistorySnapshot(existing, 'ocr-prev'));
+        if (existing.history.length > 30) existing.history = existing.history.slice(-30);
         existing.line = e.line;
         if (e.oddOver !== null) existing.oddOver = e.oddOver;
         if (e.oddUnder !== null) existing.oddUnder = e.oddUnder;
         existing.lastUpdate = now;
         existing.rawPlayer = e.player;
+        existing.ocrConfidence = e.ocrConfidence || existing.ocrConfidence;
+        if (bookHint) existing.bookHint = bookHint;
+        // Recompute fair on the new state
+        const fair = LB.computeFair(existing.oddOver, existing.oddUnder);
+        existing.fairOver = fair && fair.fairOver;
+        existing.fairUnder = fair && fair.fairUnder;
+        existing.vigPct = fair && fair.vigPct;
         if (resolution.confidence && (!existing.resolutionConfidence || confidenceScore(resolution.confidence) > confidenceScore(existing.resolutionConfidence))) {
           existing.resolvedPlayer = resolution.player;
           existing.resolutionConfidence = resolution.confidence;
         }
         updated++;
       } else {
+        const fair = LB.computeFair(e.oddOver, e.oddUnder);
         board.lines[key] = {
           rawPlayer: e.player,
           resolvedPlayer: resolution.player,
@@ -6527,6 +6609,9 @@ const LB = {
           line: e.line,
           oddOver: e.oddOver,
           oddUnder: e.oddUnder,
+          fairOver: fair && fair.fairOver,
+          fairUnder: fair && fair.fairUnder,
+          vigPct: fair && fair.vigPct,
           firstSeen: now,
           lastUpdate: now,
           history: [],
@@ -6534,6 +6619,7 @@ const LB = {
           conflicts: 0,
           ocrConfidence: e.ocrConfidence,
           partial: !!e.partial,
+          bookHint: bookHint || null,
         };
         added++;
         if (!resolution.confidence) unresolved++;
@@ -6807,9 +6893,18 @@ async function handleLineboardFiles(fileList) {
   const allWarnings = [];
 
   if (!STATE.lineboardData[game.id]) {
-    STATE.lineboardData[game.id] = { gameInfo: game, lines: {}, locked: false, uploadFingerprints: [], rememberedLayout: null };
+    STATE.lineboardData[game.id] = { gameInfo: game, lines: {}, locked: false, uploads: [], rememberedLayout: null };
   }
   const board = STATE.lineboardData[game.id];
+  // v13.8.6: migrate old format on first new upload
+  if (!board.uploads) {
+    board.uploads = (board.uploadFingerprints || []).map(fp => ({ fp, ts: null, fileName: '(legacy)', bookHint: null, legacy: true }));
+    delete board.uploadFingerprints;
+  }
+
+  // v13.8.6: per-upload context (sportsbook tag, timestamp, filename)
+  const bookHintRaw = ((el('#lineboard-book') || {}).value || '').trim();
+  const bookHint = bookHintRaw ? bookHintRaw.slice(0, 40) : null;
 
   const pendingStatRetry = [];
 
@@ -6819,15 +6914,20 @@ async function handleLineboardFiles(fileList) {
 
     try {
       const fp = await LB.fingerprint(file);
-      if (board.uploadFingerprints.indexOf(fp) >= 0) {
+      if (board.uploads.some(u => u.fp === fp)) {
         totalSkippedDupe++;
         allWarnings.push(`⏭ ${file.name}: arquivo já foi processado anteriormente (mesmo conteúdo)`);
         continue;
       }
-      board.uploadFingerprints.push(fp);
-      if (board.uploadFingerprints.length > 100) {
-        board.uploadFingerprints = board.uploadFingerprints.slice(-100);
-      }
+      const uploadCtx = {
+        fp,
+        ts: new Date().toISOString(),
+        fileName: file.name,
+        fileSize: file.size,
+        bookHint,
+        linesParsed: 0, // will be filled after parse
+        linesAdded: 0,
+      };
 
       const ocrResult = await LB.ocrImage(file, p => {
         if (fillEl) fillEl.style.width = (((i + p) / files.length) * 100) + '%';
@@ -6863,7 +6963,7 @@ async function handleLineboardFiles(fileList) {
 
       if (parsed.needsStatPrompt) {
         // Hold this OCR result in memory; prompt user for stat after loop.
-        pendingStatRetry.push({ fileName: file.name, ocrResult, layout: effectiveLayout });
+        pendingStatRetry.push({ fileName: file.name, ocrResult, layout: effectiveLayout, uploadCtx });
         continue;
       }
 
@@ -6872,7 +6972,12 @@ async function handleLineboardFiles(fileList) {
         continue;
       }
 
-      const result = LB.applyEntries(game.id, entries);
+      uploadCtx.linesParsed = entries.length;
+      const result = LB.applyEntries(game.id, entries, uploadCtx);
+      uploadCtx.linesAdded = result.added;
+      uploadCtx.linesUpdated = result.updated;
+      board.uploads.push(uploadCtx);
+      if (board.uploads.length > 200) board.uploads = board.uploads.slice(-200);
       totalAdded += result.added;
       totalUpdated += result.updated;
       if (result.locked) {
@@ -6954,11 +7059,19 @@ function renderStatPrompt(pending) {
 function applyPendingStatRetry(pending, stat) {
   if (!STATE.lineboardSelectedGame) return;
   const gid = STATE.lineboardSelectedGame.id;
+  const board = STATE.lineboardData[gid];
   let totalAdded = 0, totalUpdated = 0, totalEmpty = 0;
   for (const item of pending) {
     const reParsed = LB.parseOCR(item.ocrResult, stat, item.layout);
     if (!reParsed.entries.length) { totalEmpty++; continue; }
-    const result = LB.applyEntries(gid, reParsed.entries);
+    const ctx = item.uploadCtx || { fp: null, ts: new Date().toISOString(), fileName: item.fileName, bookHint: null };
+    ctx.linesParsed = reParsed.entries.length;
+    const result = LB.applyEntries(gid, reParsed.entries, ctx);
+    ctx.linesAdded = result.added;
+    ctx.linesUpdated = result.updated;
+    if (board && board.uploads && ctx.fp && !board.uploads.some(u => u.fp === ctx.fp)) {
+      board.uploads.push(ctx);
+    }
     totalAdded += result.added;
     totalUpdated += result.updated;
   }
@@ -7067,7 +7180,7 @@ function renderLineboardTable() {
         </td>
         <td><input type="number" class="lb-edit ${r.partial && r.oddOver === null ? 'lb-partial' : ''}" data-field="oddOver" data-key="${r.key}" value="${r.oddOver !== null && r.oddOver !== undefined ? Number(r.oddOver).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
         <td><input type="number" class="lb-edit ${r.partial && r.oddUnder === null ? 'lb-partial' : ''}" data-field="oddUnder" data-key="${r.key}" value="${r.oddUnder !== null && r.oddUnder !== undefined ? Number(r.oddUnder).toFixed(2) : ''}" step="0.01" placeholder="–"></td>
-        <td><span class="lb-age">${ageStr}</span></td>
+        <td><span class="lb-age">${ageStr}</span>${(r.history && r.history.length) ? `<div style="font-size:9px;color:var(--ink-faint);margin-top:2px;">📊 ${r.history.length} snap${r.history.length > 1 ? 's' : ''}</div>` : ''}${r.vigPct !== undefined && r.vigPct !== null ? `<div style="font-size:9px;color:var(--ink-faint);margin-top:1px;">vig ${r.vigPct.toFixed(1)}%</div>` : ''}</td>
         <td><button class="lb-analyze-btn" data-key="${r.key}">→ Analyze</button></td>
       </tr>`;
     }
@@ -7084,9 +7197,28 @@ function renderLineboardTable() {
       const entry = board.lines[key];
       if (!entry) return;
       if (!entry.history) entry.history = [];
-      entry.history.push({ ts: entry.lastUpdate, line: entry.line, oddOver: entry.oddOver, oddUnder: entry.oddUnder });
-      if (entry.history.length > 20) entry.history = entry.history.slice(-20);
+      // v13.8.6: enriched history snapshot with fair/vig + source='edit'
+      const prevFair = LB.computeFair(entry.oddOver, entry.oddUnder);
+      entry.history.push({
+        ts: entry.lastUpdate,
+        line: entry.line,
+        oddOver: entry.oddOver,
+        oddUnder: entry.oddUnder,
+        fairOver: prevFair && prevFair.fairOver,
+        fairUnder: prevFair && prevFair.fairUnder,
+        vigPct: prevFair && prevFair.vigPct,
+        source: 'pre-edit',
+        uploadFp: null,
+        bookHint: entry.bookHint || null,
+        ocrConfidence: entry.ocrConfidence || null,
+      });
+      if (entry.history.length > 30) entry.history = entry.history.slice(-30);
       entry[field] = val;
+      // Recompute current fair after edit
+      const newFair = LB.computeFair(entry.oddOver, entry.oddUnder);
+      entry.fairOver = newFair && newFair.fairOver;
+      entry.fairUnder = newFair && newFair.fairUnder;
+      entry.vigPct = newFair && newFair.vigPct;
       entry.lastUpdate = new Date().toISOString();
       entry.edited = true;
       safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);

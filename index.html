@@ -1539,7 +1539,11 @@
       </div>
       <div class="panel-body">
         <div class="filter-group">
-          <label>Today's Game <span class="tip" data-tip="Selecione o jogo antes de mandar prints. O sistema usa os rosters dos dois times pra resolver nomes de jogadores com precisão.">?</span></label>
+          <label>Date <span class="tip" data-tip="Padrão: hoje (data local). Selecione data futura pra jogos agendados, ou data passada pra revisar.">?</span></label>
+          <input type="date" id="lineboard-date">
+        </div>
+        <div class="filter-group" style="margin-top:10px;">
+          <label>Game <span class="tip" data-tip="Selecione o jogo antes de mandar prints. O sistema usa os rosters dos dois times pra resolver nomes de jogadores com precisão.">?</span></label>
           <select id="lineboard-game"><option value="">— select game —</option></select>
         </div>
         <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
@@ -2054,6 +2058,7 @@ const STATE = {
   oddsUnavailable: false, // v13: set true when /v2/odds returns 401/403
   // v13.8: line board
   lineboardGames: [],
+  lineboardSelectedDate: safeLocalStorageGet('bdl_lb_date', ''),
   lineboardSelectedGameId: safeLocalStorageGet('bdl_lb_game', ''),
   lineboardSelectedGame: null,
   lineboardRosters: {},
@@ -6020,6 +6025,17 @@ function confidenceScore(c) {
   return c === 'high' ? 3 : c === 'medium' ? 2 : c === 'low' ? 1 : 0;
 }
 
+// v13.8: NBA's date reference is US Eastern. Using LOCAL date avoids the UTC
+// rollover bug (toISOString returns UTC, so late-night users see "tomorrow").
+// User can still pick any date manually via the date input.
+function lineboardLocalDateISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const LB = {
   statAliases: {
     pts:  ['pts','points','pontos','p','ptos','puntos'],
@@ -6479,18 +6495,22 @@ async function loadGameRosters(game) {
   if (metaEl) metaEl.textContent = `rosters loaded · ${totalPlayers} players`;
 }
 
-async function loadLineboardGames(force) {
+async function loadLineboardGames(force, dateStr) {
   const metaEl = el('#lineboard-meta');
+  const date = dateStr || STATE.lineboardSelectedDate || lineboardLocalDateISO();
+  STATE.lineboardSelectedDate = date;
+  safeLocalStorageSet('bdl_lb_date', date);
+  const dateInput = el('#lineboard-date');
+  if (dateInput && dateInput.value !== date) dateInput.value = date;
   if (metaEl) metaEl.innerHTML = '<span class="loader"></span>loading games';
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const data = await bdlFetch('/games', { 'dates[]': today, per_page: 100 }, !force);
+    const data = await bdlFetch('/games', { 'dates[]': date, per_page: 100 }, !force);
     STATE.lineboardGames = (data && data.data) || [];
     const sel = el('#lineboard-game');
     if (!sel) return;
     sel.innerHTML = '<option value="">— select game —</option>';
     if (!STATE.lineboardGames.length) {
-      sel.innerHTML += '<option value="" disabled>(no NBA games today)</option>';
+      sel.innerHTML += `<option value="" disabled>(no NBA games on ${date})</option>`;
     } else {
       STATE.lineboardGames.sort((a, b) => new Date(a.date) - new Date(b.date));
       for (const g of STATE.lineboardGames) {
@@ -6500,17 +6520,29 @@ async function loadLineboardGames(force) {
         const playoffTag = g.postseason ? ' 🏆' : '';
         sel.innerHTML += `<option value="${g.id}">${visitor} @ ${home}${status ? ' · ' + status : ''}${playoffTag}</option>`;
       }
-      if (STATE.lineboardSelectedGameId) sel.value = STATE.lineboardSelectedGameId;
+      if (STATE.lineboardSelectedGameId &&
+          STATE.lineboardGames.some(g => String(g.id) === String(STATE.lineboardSelectedGameId))) {
+        sel.value = STATE.lineboardSelectedGameId;
+      } else {
+        sel.value = '';
+        STATE.lineboardSelectedGameId = '';
+        STATE.lineboardSelectedGame = null;
+        safeLocalStorageSet('bdl_lb_game', '');
+      }
     }
-    if (metaEl) metaEl.textContent = `${STATE.lineboardGames.length} games today`;
+    if (metaEl) metaEl.textContent = `${STATE.lineboardGames.length} game${STATE.lineboardGames.length === 1 ? '' : 's'} · ${date}`;
   } catch (err) {
     if (metaEl) metaEl.textContent = 'err: ' + err.message;
   }
 }
 
 async function initLineboard() {
+  const dateInput = el('#lineboard-date');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = STATE.lineboardSelectedDate || lineboardLocalDateISO();
+  }
   if (!STATE.lineboardGames || !STATE.lineboardGames.length) {
-    await loadLineboardGames();
+    await loadLineboardGames(false, dateInput && dateInput.value);
   }
   if (STATE.lineboardSelectedGameId) {
     const g = STATE.lineboardGames.find(x => String(x.id) === String(STATE.lineboardSelectedGameId));
@@ -6550,8 +6582,23 @@ function wireLineboardOnce() {
     renderLineboardUnresolved();
   });
 
+  const dateInput = el('#lineboard-date');
+  if (dateInput) dateInput.addEventListener('change', async e => {
+    const newDate = e.target.value;
+    if (!newDate) return;
+    await loadLineboardGames(true, newDate);
+    STATE.lineboardSelectedGame = null;
+    const lr = el('#lineboard-load-rosters'); if (lr) lr.disabled = true;
+    renderLineboardGameInfo();
+    renderLineboardTable();
+    renderLineboardUnresolved();
+  });
+
   const refreshBtn = el('#lineboard-refresh-games');
-  if (refreshBtn) refreshBtn.addEventListener('click', () => loadLineboardGames(true));
+  if (refreshBtn) refreshBtn.addEventListener('click', () => {
+    const d = (el('#lineboard-date') && el('#lineboard-date').value) || lineboardLocalDateISO();
+    loadLineboardGames(true, d);
+  });
 
   const loadRostersBtn = el('#lineboard-load-rosters');
   if (loadRostersBtn) loadRostersBtn.addEventListener('click', async () => {

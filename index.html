@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.4 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1227,7 +1227,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8 · Line Board · OCR Capture</span>
+      <span class="tag">v13.8.4 · Line Board · Persistent Captures</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1921,6 +1921,14 @@
           <div class="metric">
             <div class="lbl">Profile File Size</div>
             <div class="val" id="p-snapshot-size">–</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">OCR Lines Captured</div>
+            <div class="val" id="p-lb-lines">0</div>
+          </div>
+          <div class="metric">
+            <div class="lbl">Games on Board</div>
+            <div class="val" id="p-lb-games">0</div>
           </div>
         </div>
 
@@ -4930,16 +4938,24 @@ function renderProfile() {
   // Estimate snapshot size
   const snapshotSize = JSON.stringify(buildSnapshot()).length;
   $('#p-snapshot-size').textContent = (snapshotSize / 1024).toFixed(1) + ' KB';
+
+  // v13.8.4: lineboard footprint — gives user visual confirmation that OCR captures persist
+  const lbData = STATE.lineboardData || {};
+  const lbGames = Object.keys(lbData).length;
+  const lbLines = Object.values(lbData).reduce((s, b) => s + Object.keys((b && b.lines) || {}).length, 0);
+  const lbEl1 = el('#p-lb-lines'); if (lbEl1) lbEl1.textContent = lbLines;
+  const lbEl2 = el('#p-lb-games'); if (lbEl2) lbEl2.textContent = lbGames;
 }
 
 function buildSnapshot() {
   return {
-    version: 'v4',
+    version: 'v5',
     generatedAt: new Date().toISOString(),
     profile: STATE.profile,
     bets: STATE.bets,
     settings: STATE.settings,
     apiKey: STATE.apiKey, // user can choose to clear before sending
+    lineboardData: STATE.lineboardData, // v13.8.4: persistent OCR-captured prop history
     // Note: cache NOT included on purpose — it's transient and bloats file
   };
 }
@@ -4976,6 +4992,10 @@ function validateSnapshot(snapshot) {
   if (snapshot.apiKey !== undefined && typeof snapshot.apiKey !== 'string') {
     errors.push('apiKey must be string');
   }
+  // v13.8.4: lineboardData must be object if present (optional — older snapshots won't have it)
+  if (snapshot.lineboardData !== undefined && (typeof snapshot.lineboardData !== 'object' || Array.isArray(snapshot.lineboardData))) {
+    errors.push('lineboardData must be object');
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -5005,6 +5025,15 @@ function seedFromSnapshot(snapshot) {
     if (snapshot.apiKey && typeof snapshot.apiKey === 'string' && snapshot.apiKey.trim()) {
       STATE.apiKey = snapshot.apiKey.trim();
       safeLocalStorageSet('bdl_key', STATE.apiKey);
+    }
+    // v13.8.4: restore OCR-captured prop history. MERGE strategy by gameId:
+    // - games not present in snapshot are kept (so import doesn't wipe local captures)
+    // - games present in snapshot OVERWRITE the local game (snapshot is authoritative
+    //   for games it contains, since it likely has more recent data from the source)
+    if (snapshot.lineboardData && typeof snapshot.lineboardData === 'object' && !Array.isArray(snapshot.lineboardData)) {
+      const merged = Object.assign({}, STATE.lineboardData || {}, snapshot.lineboardData);
+      STATE.lineboardData = merged;
+      safeLocalStorageSet('bdl_lineboard', merged);
     }
   } catch (e) {
     throw new Error('Falha ao popular dados: ' + e.message);

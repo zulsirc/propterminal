@@ -6327,6 +6327,7 @@ const LB = {
       return { entries, warnings };
     }
 
+    let droppedNoStat = 0;
     for (const ln of lines) {
       const raw = ln.text.trim();
       if (raw.length < 3) continue;
@@ -6342,7 +6343,14 @@ const LB = {
 
       const normalized = raw.replace(/(\d),(\d)/g, '$1.$2');
       const rowResult = LB.parsePlayerLine(raw, normalized, currentStat || scopeHint, layout);
-      if (!rowResult) continue;
+      if (!rowResult) {
+        // v13.8.2: detect rows that LOOK like data but got dropped due to missing stat.
+        const numCount = (normalized.match(/-?\d+\.?\d*/g) || []).length;
+        const hasLetters = /[a-zA-Z]{3,}/.test(normalized);
+        const statKnown = !!currentStat || (scopeHint && scopeHint !== 'auto') || !!LB.detectStat(raw, scopeHint);
+        if (numCount >= 2 && hasLetters && !statKnown) droppedNoStat++;
+        continue;
+      }
 
       const key = LB.normalizeName(rowResult.player) + '::' + rowResult.stat;
       if (seenInThisUpload[key]) {
@@ -6354,6 +6362,12 @@ const LB = {
       }
       seenInThisUpload[key] = rowResult;
       entries.push(rowResult);
+    }
+
+    if (droppedNoStat >= 3 && !entries.length) {
+      warnings.push(`⚠ ${droppedNoStat} linhas com player + line + odds detectadas, mas sem cabeçalho de stat no print (ex: "POINTS"). Selecione manualmente o "Stat scope hint" acima (provavelmente "Points") e refaça o upload.`);
+    } else if (droppedNoStat >= 3) {
+      warnings.push(`ℹ ${droppedNoStat} linhas adicionais foram ignoradas por falta de cabeçalho de stat. Se precisava delas, ajuste o "Stat scope hint" e reupload.`);
     }
 
     return { entries, warnings };
@@ -6384,6 +6398,13 @@ const LB = {
       if (candidate.length >= 4 && target.includes(candidate)) score += 15;
       const shared = targetTokens.filter(t => candidateTokens.includes(t)).length;
       score += shared * 8;
+      // v13.8.2: "Lastname, Firstname" handling — same token set in different order
+      // (BR sportsbooks display "Allen, Jarrett"; BalldontLie has "Jarrett Allen").
+      // Without this, score caps at 16 (2 shared * 8) and the row goes unresolved.
+      if (targetTokens.length >= 2 && candidateTokens.length === targetTokens.length) {
+        const allMatch = targetTokens.every(t => candidateTokens.indexOf(t) >= 0);
+        if (allMatch) score += 60;
+      }
       if (score > bestScore) { bestScore = score; best = p; }
     }
 

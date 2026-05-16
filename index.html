@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.9 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.10 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1256,7 +1256,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.9 · Welcome screen · viewport-locked + single-shot load</span>
+      <span class="tag">v13.8.10 · max-precision checkbox cascade fix</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1661,8 +1661,8 @@
           <button class="ghost" id="lineboard-lock">Lock board</button>
           <button class="ghost" id="lineboard-export">Export JSON</button>
         </div>
-        <label id="lineboard-max-precision-label" style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-dim); margin-bottom:14px; cursor:pointer; line-height:1.4;" title="Row-by-row OCR pass. Mais preciso, mas 3-5× mais lento por imagem.">
-          <input type="checkbox" id="lineboard-max-precision" checked style="margin:0; flex-shrink:0;">
+        <label id="lineboard-max-precision-label" style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-dim); margin-bottom:14px; cursor:pointer; line-height:1.4; text-transform:none; letter-spacing:0;" title="Row-by-row OCR pass. Mais preciso, mas 3-5× mais lento por imagem.">
+          <input type="checkbox" id="lineboard-max-precision" checked style="margin:0; flex-shrink:0; width:auto; padding:0;">
           <span>max precision · row-by-row OCR (3-5× mais lento, mais preciso)</span>
         </label>
         <div id="lineboard-batch-progress" class="hidden" style="margin-bottom:14px;">

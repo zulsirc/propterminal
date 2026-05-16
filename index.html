@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.7 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.8 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1234,7 +1234,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.7 · Line Board · Deterministic OCR Precision</span>
+      <span class="tag">v13.8.8 · Line Board · Soft-archive Clear board</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -1632,16 +1632,17 @@
         <span class="meta" id="lineboard-board-meta">0 lines</span>
       </div>
       <div class="panel-body">
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
           <button class="primary" id="lineboard-analyze-all" style="padding:7px 14px;">⚡ Analyze all &amp; rank</button>
           <button class="ghost" id="lineboard-clear">Clear board</button>
+          <span id="lineboard-archive-count" style="display:none; font-size:10px; color:var(--ink-faint); padding:4px 8px; border:1px solid var(--border-soft); cursor:pointer; user-select:none;" title="Sessões arquivadas">📦 –</span>
           <button class="ghost" id="lineboard-lock">Lock board</button>
           <button class="ghost" id="lineboard-export">Export JSON</button>
-          <label style="font-size:10px; color:var(--ink-dim); display:flex; align-items:center; gap:5px; margin-left:auto; cursor:pointer;" title="Row-by-row OCR pass. Mais preciso, mas 3-5× mais lento por imagem.">
-            <input type="checkbox" id="lineboard-max-precision" checked style="margin:0;">
-            max precision (row-by-row OCR)
-          </label>
         </div>
+        <label id="lineboard-max-precision-label" style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-dim); margin-bottom:14px; cursor:pointer; line-height:1.4;" title="Row-by-row OCR pass. Mais preciso, mas 3-5× mais lento por imagem.">
+          <input type="checkbox" id="lineboard-max-precision" checked style="margin:0; flex-shrink:0;">
+          <span>max precision · row-by-row OCR (3-5× mais lento, mais preciso)</span>
+        </label>
         <div id="lineboard-batch-progress" class="hidden" style="margin-bottom:14px;">
           <div class="progress-bar"><div class="progress-bar-fill" id="lineboard-batch-progress-fill"></div></div>
           <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
@@ -1963,6 +1964,10 @@
             <div class="lbl">Uploads Tracked</div>
             <div class="val" id="p-lb-uploads">0</div>
           </div>
+          <div class="metric">
+            <div class="lbl">📦 Archive Sessions</div>
+            <div class="val" id="p-lb-archive">0</div>
+          </div>
         </div>
 
         <div style="margin-top: 24px; padding: 14px; background: rgba(248,113,113,0.05); border: 1px solid rgba(248,113,113,0.3);">
@@ -2106,6 +2111,13 @@ const STATE = {
   lineboardRosters: {},
   lineboardData: (() => {
     const d = safeLocalStorageGetJSON('bdl_lineboard', {});
+    return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
+  })(),
+  // v13.8.8: per-game archive of Clear board snapshots. Soft-delete instead of destroy.
+  // Sessions <7d old stay in localStorage and ride in the profile snapshot. Older sessions
+  // get auto-dumped to a download JSON and pruned. NEVER touches bets/skips/profile history.
+  lineboardArchive: (() => {
+    const d = safeLocalStorageGetJSON('bdl_lineboard_archive', {});
     return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
   })(),
 };
@@ -4990,17 +5002,24 @@ function renderProfile() {
   const lbEl2 = el('#p-lb-games'); if (lbEl2) lbEl2.textContent = lbGames;
   const lbEl3 = el('#p-lb-snaps'); if (lbEl3) lbEl3.textContent = lbSnapshots;
   const lbEl4 = el('#p-lb-uploads'); if (lbEl4) lbEl4.textContent = lbUploads;
+
+  // v13.8.8: archive sessions metric — preserved Clear-board snapshots in the profile
+  const lbArch = STATE.lineboardArchive || {};
+  let archCount = 0;
+  for (const gid of Object.keys(lbArch)) archCount += (lbArch[gid] || []).length;
+  const lbEl5 = el('#p-lb-archive'); if (lbEl5) lbEl5.textContent = archCount;
 }
 
 function buildSnapshot() {
   return {
-    version: 'v5',
+    version: 'v6',
     generatedAt: new Date().toISOString(),
     profile: STATE.profile,
     bets: STATE.bets,
     settings: STATE.settings,
     apiKey: STATE.apiKey, // user can choose to clear before sending
-    lineboardData: STATE.lineboardData, // v13.8.4: persistent OCR-captured prop history
+    lineboardData: STATE.lineboardData, // v13.8.4: persistent OCR-captured prop history (active board)
+    lineboardArchive: STATE.lineboardArchive, // v13.8.8: cleared-but-preserved sessions (7d rolling)
     // Note: cache NOT included on purpose — it's transient and bloats file
   };
 }
@@ -5041,6 +5060,10 @@ function validateSnapshot(snapshot) {
   if (snapshot.lineboardData !== undefined && (typeof snapshot.lineboardData !== 'object' || Array.isArray(snapshot.lineboardData))) {
     errors.push('lineboardData must be object');
   }
+  // v13.8.8: lineboardArchive must be object if present (optional — pre-v6 snapshots won't have it)
+  if (snapshot.lineboardArchive !== undefined && (typeof snapshot.lineboardArchive !== 'object' || Array.isArray(snapshot.lineboardArchive))) {
+    errors.push('lineboardArchive must be object');
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -5079,6 +5102,28 @@ function seedFromSnapshot(snapshot) {
       const merged = Object.assign({}, STATE.lineboardData || {}, snapshot.lineboardData);
       STATE.lineboardData = merged;
       safeLocalStorageSet('bdl_lineboard', merged);
+    }
+    // v13.8.8: merge archive by gameId + clearedAt-dedup. Imports never wipe local archive.
+    // Bet/skip history is unrelated and unchanged.
+    if (snapshot.lineboardArchive && typeof snapshot.lineboardArchive === 'object' && !Array.isArray(snapshot.lineboardArchive)) {
+      const local = STATE.lineboardArchive || {};
+      const imported = snapshot.lineboardArchive;
+      const merged = {};
+      const allGids = new Set([...Object.keys(local), ...Object.keys(imported)]);
+      for (const gid of allGids) {
+        const seen = new Set();
+        const combined = [];
+        for (const s of (local[gid] || [])) {
+          if (s && s.clearedAt && !seen.has(s.clearedAt)) { seen.add(s.clearedAt); combined.push(s); }
+        }
+        for (const s of (imported[gid] || [])) {
+          if (s && s.clearedAt && !seen.has(s.clearedAt)) { seen.add(s.clearedAt); combined.push(s); }
+        }
+        combined.sort((a, b) => (a.clearedAt || '').localeCompare(b.clearedAt || ''));
+        if (combined.length) merged[gid] = combined;
+      }
+      STATE.lineboardArchive = merged;
+      safeLocalStorageSet('bdl_lineboard_archive', merged);
     }
   } catch (e) {
     throw new Error('Falha ao popular dados: ' + e.message);
@@ -6968,6 +7013,82 @@ const LB = {
     safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
     return { updated, added, skipped: 0, unresolved, locked: false };
   },
+
+  // v13.8.8: rolling 7-day prune of the lineboard archive.
+  // Walks ONLY STATE.lineboardArchive. Never touches bets/skips/profile history.
+  // - triggerDownload=true: must be called from a user-gesture context (click handler)
+  //   so the browser allows the a.click() download. Mutates state on success.
+  // - triggerDownload=false: dry-run report only. Use at app init to surface a banner.
+  pruneArchive(triggerDownload) {
+    const CUTOFF_MS = 7 * 24 * 3600 * 1000;
+    const now = Date.now();
+    const archive = STATE.lineboardArchive || {};
+    let totalCount = 0;
+    let oldCount = 0;
+    let oldestDate = null, newestDate = null;
+
+    for (const gid of Object.keys(archive)) {
+      for (const s of (archive[gid] || [])) {
+        totalCount++;
+        const t = new Date(s.clearedAt).getTime();
+        if (!isNaN(t) && (now - t) > CUTOFF_MS) {
+          oldCount++;
+          if (!oldestDate || t < oldestDate) oldestDate = t;
+          if (!newestDate || t > newestDate) newestDate = t;
+        }
+      }
+    }
+
+    if (oldCount === 0) {
+      return { dumped: 0, remaining: totalCount, pending: 0 };
+    }
+    if (!triggerDownload) {
+      return { dumped: 0, remaining: totalCount, pending: oldCount };
+    }
+
+    // Separate fresh from old. Build dump payload.
+    const newArchive = {};
+    const dumped = {};
+    let remaining = 0;
+    for (const gid of Object.keys(archive)) {
+      const fresh = [];
+      const old = [];
+      for (const s of (archive[gid] || [])) {
+        const t = new Date(s.clearedAt).getTime();
+        if (!isNaN(t) && (now - t) > CUTOFF_MS) old.push(s);
+        else fresh.push(s);
+      }
+      if (fresh.length) { newArchive[gid] = fresh; remaining += fresh.length; }
+      if (old.length) dumped[gid] = old;
+    }
+
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        oldestSession: oldestDate ? new Date(oldestDate).toISOString() : null,
+        newestSession: newestDate ? new Date(newestDate).toISOString() : null,
+        sessionCount: oldCount,
+        byGame: dumped,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const from = oldestDate ? new Date(oldestDate).toISOString().slice(0,10) : 'unknown';
+      const to = newestDate ? new Date(newestDate).toISOString().slice(0,10) : 'unknown';
+      a.download = `propterminal_archive_${from}_to_${to}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch(_) {} }, 60000);
+    } catch (e) {
+      console.error('archive dump failed', e);
+      return { dumped: 0, remaining: totalCount, pending: oldCount, error: e.message };
+    }
+
+    STATE.lineboardArchive = newArchive;
+    safeLocalStorageSet('bdl_lineboard_archive', newArchive);
+    return { dumped: oldCount, remaining, downloaded: true };
+  },
 };
 
 async function loadGameRosters(game) {
@@ -7139,15 +7260,66 @@ function wireLineboardOnce() {
     });
   }
 
+  // v13.8.8: SOFT clear — archive current session snapshot into STATE.lineboardArchive
+  // before wiping. Auto-prunes archive sessions >7d old to a downloaded JSON dump.
+  // The active board's profile track record (bets, skips, etc.) is never touched.
   const clearBtn = el('#lineboard-clear');
   if (clearBtn) clearBtn.addEventListener('click', () => {
     if (!STATE.lineboardSelectedGame) return;
-    if (!confirm('Apagar todas as linhas deste jogo?')) return;
-    delete STATE.lineboardData[STATE.lineboardSelectedGame.id];
+    const gid = STATE.lineboardSelectedGame.id;
+    const board = STATE.lineboardData[gid];
+    const hasContent = board && (
+      (board.lines && Object.keys(board.lines).length > 0) ||
+      (board.uploads && board.uploads.length > 0)
+    );
+    if (!hasContent) {
+      alert('Board já está vazio — nada pra arquivar.');
+      return;
+    }
+    if (!confirm('Arquivar sessão atual e limpar o board?\n(dados salvos no perfil · auto-dump em 7d)')) return;
+
+    try {
+      STATE.lineboardArchive = STATE.lineboardArchive || {};
+      STATE.lineboardArchive[gid] = STATE.lineboardArchive[gid] || [];
+      STATE.lineboardArchive[gid].push({
+        clearedAt: new Date().toISOString(),
+        lines: JSON.parse(JSON.stringify(board.lines || {})),
+        uploads: JSON.parse(JSON.stringify(board.uploads || [])),
+        rememberedLayout: board.rememberedLayout ? JSON.parse(JSON.stringify(board.rememberedLayout)) : null,
+        gameInfo: board.gameInfo ? JSON.parse(JSON.stringify(board.gameInfo)) : null,
+      });
+      safeLocalStorageSet('bdl_lineboard_archive', STATE.lineboardArchive);
+    } catch (e) {
+      alert('Erro ao arquivar sessão: ' + (e.message || e));
+      return;
+    }
+
+    delete STATE.lineboardData[gid];
     safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+
+    // Inside user-gesture context → safe to trigger auto-dump if any sessions >7d.
+    const pruneResult = LB.pruneArchive(true);
+
     renderLineboardTable();
     renderLineboardUnresolved();
     renderLineboardBadge();
+    renderLineboardArchiveCount();
+
+    if (pruneResult && pruneResult.downloaded) {
+      console.log(`[archive] ${pruneResult.dumped} sessions >7d dumped to download, ${pruneResult.remaining} retained`);
+    }
+  });
+
+  // v13.8.8: click the archive counter to manually trigger dump of any old sessions.
+  const archCountBtn = el('#lineboard-archive-count');
+  if (archCountBtn) archCountBtn.addEventListener('click', () => {
+    const result = LB.pruneArchive(true);
+    renderLineboardArchiveCount();
+    if (result.downloaded) {
+      alert(`📦 ${result.dumped} sessões antigas baixadas. ${result.remaining} mantidas no perfil.`);
+    } else if (result.dumped === 0 && (result.remaining || 0) > 0) {
+      alert(`Nenhuma sessão >7d ainda. ${result.remaining} arquivadas (auto-dump quando completarem 7 dias).`);
+    }
   });
 
   const lockBtn = el('#lineboard-lock');
@@ -7654,6 +7826,41 @@ function renderLineboardBadge() {
   }
 }
 
+// v13.8.8: counter near Clear button reflecting the archived-session count.
+// Highlighted when sessions >7d are pending an auto-dump.
+function renderLineboardArchiveCount() {
+  const node = el('#lineboard-archive-count');
+  if (!node) return;
+  const arch = STATE.lineboardArchive || {};
+  let total = 0;
+  let pending = 0;
+  const CUTOFF_MS = 7 * 24 * 3600 * 1000;
+  const now = Date.now();
+  for (const gid of Object.keys(arch)) {
+    for (const s of (arch[gid] || [])) {
+      total++;
+      const t = new Date(s.clearedAt).getTime();
+      if (!isNaN(t) && (now - t) > CUTOFF_MS) pending++;
+    }
+  }
+  if (total === 0) {
+    node.style.display = 'none';
+    return;
+  }
+  node.style.display = '';
+  if (pending > 0) {
+    node.textContent = `📦 ${total} arq · ${pending}↓`;
+    node.title = `${total} sessões arquivadas. ${pending} antigas (>7d) prontas pra baixar — clique pra dump.`;
+    node.style.borderColor = 'var(--accent, #f97316)';
+    node.style.color = 'var(--ink, #e5e5e5)';
+  } else {
+    node.textContent = `📦 ${total} arq`;
+    node.title = `${total} sessões arquivadas no perfil. Auto-dump quando ultrapassarem 7 dias.`;
+    node.style.borderColor = 'var(--border-soft)';
+    node.style.color = 'var(--ink-faint)';
+  }
+}
+
 async function sendBoardEntryToAnalyze(boardKey) {
   if (!STATE.lineboardSelectedGame) { alert('Selecione um jogo primeiro.'); return; }
   const game = STATE.lineboardSelectedGame;
@@ -7956,6 +8163,7 @@ function renderRankedBoard(results) {
 
 // Initialize badge at boot
 renderLineboardBadge();
+renderLineboardArchiveCount();
 
 // === v13: GLOBAL ERROR HANDLER ===
 // Catches uncaught errors and unhandled promise rejections to prevent white-screen.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.8 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.9 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -539,37 +539,48 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    overflow-y: auto;
+    padding: max(20px, env(safe-area-inset-top, 20px)) 20px max(20px, env(safe-area-inset-bottom, 20px)) 20px;
+    overflow: hidden;
   }
   .welcome-card {
     max-width: 560px;
     width: 100%;
+    max-height: 100%;
     background: var(--bg-2);
     border: 1px solid var(--accent);
-    padding: 28px;
+    padding: 24px;
     box-shadow: 0 8px 32px rgba(255, 174, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .welcome-card h1 {
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 24px; font-weight: 800;
     letter-spacing: -0.02em;
     margin-bottom: 6px;
+    flex-shrink: 0;
   }
   .welcome-card h1 .accent { color: var(--accent); }
   .welcome-card .subtitle {
     font-size: 11px; letter-spacing: 0.18em;
     text-transform: uppercase; color: var(--ink-faint);
     margin-bottom: 18px;
+    flex-shrink: 0;
   }
   .welcome-card .desc {
     font-size: 13px; line-height: 1.6;
     color: var(--ink-dim);
     margin-bottom: 22px;
+    flex-shrink: 0;
   }
   .welcome-card .desc strong { color: var(--ink); }
   .welcome-options {
     display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    scrollbar-width: thin;
   }
   .welcome-opt {
     background: var(--bg);
@@ -611,6 +622,16 @@
     color: var(--ink-faint);
     line-height: 1.6;
     letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  @media (max-height: 700px) {
+    .welcome-card { padding: 18px; }
+    .welcome-card h1 { font-size: 20px; margin-bottom: 4px; }
+    .welcome-card .subtitle { margin-bottom: 12px; }
+    .welcome-card .desc { font-size: 12px; line-height: 1.5; margin-bottom: 14px; }
+    .welcome-card .welcome-foot { margin-top: 14px; padding-top: 12px; }
+    .welcome-opt { padding: 12px; }
+    .welcome-opt .opt-desc { font-size: 11px; }
   }
 
   /* === TUTORIAL MODAL === */
@@ -1209,6 +1230,7 @@
       OPEN-SOURCE · CLIENT-SIDE · SEM SERVIDOR · SEM RASTREAMENTO<br>
       Após começar, vai na aba <strong>LEARN</strong> pra ver detalhes técnicos.
     </div>
+    <input type="file" id="welcome-load-file" accept=".json" style="display:none;">
   </div>
 </div>
 
@@ -1234,7 +1256,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.8 · Line Board · Soft-archive Clear board</span>
+      <span class="tag">v13.8.9 · Welcome screen · viewport-locked + single-shot load</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -4882,25 +4904,26 @@ function finishInit() {
 function setupWelcomeHandlers() {
   $('#welcome-tutorial').addEventListener('click', startTutorial);
 
+  // v13.8.9: use the persistent hidden #welcome-load-file input instead of creating one on the fly.
+  // The previous dynamic-input pattern lost its user-gesture context on iOS Safari, forcing the user
+  // to pick the file twice. A permanent DOM-resident input fires `change` reliably.
+  const loadFileInput = $('#welcome-load-file');
   $('#welcome-load').addEventListener('click', () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const snapshot = JSON.parse(text);
-        if (!snapshot.version || !snapshot.profile) throw new Error('Arquivo inválido — não é um perfil PROP TERMINAL');
-        seedFromSnapshot(snapshot);
-        // Skip welcome, finish init with loaded data
-        location.reload();
-      } catch (err) {
-        alert('Falha ao carregar perfil: ' + err.message);
-      }
-    };
-    input.click();
+    loadFileInput.value = ''; // allow re-selecting the same file
+    loadFileInput.click();
+  });
+  loadFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const snapshot = JSON.parse(text);
+      if (!snapshot.version || !snapshot.profile) throw new Error('Arquivo inválido — não é um perfil PROP TERMINAL');
+      seedFromSnapshot(snapshot);
+      location.reload();
+    } catch (err) {
+      alert('Falha ao carregar perfil: ' + err.message);
+    }
   });
 
   $('#welcome-new').addEventListener('click', () => {

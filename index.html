@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PROP TERMINAL v13.8.10 // NBA · Line Board</title>
+<title>PROP TERMINAL v13.8.11 // NBA · Line Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1256,7 +1256,7 @@
   <header>
     <div class="brand">
       <h1>PROP <span class="accent">TERMINAL</span></h1>
-      <span class="tag">v13.8.10 · max-precision checkbox cascade fix</span>
+      <span class="tag">v13.8.11 · Clear/switch wipes ranked panel</span>
     </div>
     <div class="clock"><span class="dot"></span><span id="clock">--:--:--</span></div>
   </header>
@@ -7232,6 +7232,7 @@ function wireLineboardOnce() {
     renderLineboardGameInfo();
     renderLineboardTable();
     renderLineboardUnresolved();
+    const rankedEl = el('#lineboard-ranked'); if (rankedEl) rankedEl.innerHTML = '';
   });
 
   const dateInput = el('#lineboard-date');
@@ -7244,6 +7245,7 @@ function wireLineboardOnce() {
     renderLineboardGameInfo();
     renderLineboardTable();
     renderLineboardUnresolved();
+    const rankedEl = el('#lineboard-ranked'); if (rankedEl) rankedEl.innerHTML = '';
   });
 
   const refreshBtn = el('#lineboard-refresh-games');
@@ -7319,6 +7321,12 @@ function wireLineboardOnce() {
 
     delete STATE.lineboardData[gid];
     safeLocalStorageSet('bdl_lineboard', STATE.lineboardData);
+
+    // v13.8.11: abort any in-flight Analyze all batch and wipe its UI artifacts.
+    _analyzeAllAbort = true;
+    const rankedEl = el('#lineboard-ranked'); if (rankedEl) rankedEl.innerHTML = '';
+    const progEl = el('#lineboard-batch-progress'); if (progEl) progEl.classList.add('hidden');
+    const fillEl = el('#lineboard-batch-progress-fill'); if (fillEl) fillEl.style.width = '0%';
 
     // Inside user-gesture context → safe to trigger auto-dump if any sessions >7d.
     const pruneResult = LB.pruneArchive(true);
@@ -8131,6 +8139,12 @@ function renderRankedBoard(results) {
   const ctr = el('#lineboard-ranked');
   if (!ctr) return;
   if (!results || !results.length) { ctr.innerHTML = ''; return; }
+  // v13.8.11: if the underlying board was cleared/switched between batch start and
+  // this final render, drop the now-stale results instead of repainting them.
+  if (!STATE.lineboardSelectedGame || !STATE.lineboardData[STATE.lineboardSelectedGame.id]) {
+    ctr.innerHTML = '';
+    return;
+  }
 
   // Sort by edge desc; failed/no-edge entries go to the bottom
   results.sort((a, b) => {
